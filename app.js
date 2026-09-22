@@ -4,14 +4,17 @@
 (function () {
 "use strict";
 
-var BUILD = { version: "1.0.0", date: "2026-09-21", sources: [
+var BUILD = { version: "1.1.0", date: "2026-09-22", sources: [
   { file: "Repair Handbook 101.docx", note: "TVE-5 — T-Codes, finding definitions, GD&T, plate nut identification, fastener references, important links" },
   { file: "Rectification History Database.xlsx", note: "sheet Main (historical rectification records) and sheet List Engine (shop visit list)" },
-  { file: "Repair Note Dema.xlsx", note: "sheets Module 22x, Module 23x, Plate Nut- Insert, Exhaust Sleeve, Spinner Cone, Flowpath Repair, CMM or retail" }
+  { file: "Repair Note Dema.xlsx", note: "sheets Module 22x, Module 23x, Plate Nut- Insert, Exhaust Sleeve, Spinner Cone, Flowpath Repair, CMM or retail" },
+  { file: "list consumable material for SEI 01-2019 & 27-2020.xlsx", note: "Reference label SEI TVE-2 — all worksheets" },
+  { file: "Consumable Material List - Update 2026.xlsx", note: "Reference label EIN (TEA-5) — all worksheets" }
 ]};
 
 var RECT = window.RECTIFICATION || [], ENGINES = window.ENGINE_LIST || [],
-    RN = window.REPAIR_NOTE || {}, HB = window.HANDBOOK || {}, IMGS = window.HANDBOOK_IMAGES || [];
+    RN = window.REPAIR_NOTE || {}, HB = window.HANDBOOK || {}, IMGS = window.HANDBOOK_IMAGES || [],
+    EIN = window.CONSUMABLE_EIN || {file:"",rows:[]}, SEI = window.CONSUMABLE_SEI || {file:"",rows:[]};
 
 /* ---------- helpers ---------- */
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){
@@ -65,7 +68,7 @@ function frac(n,den){return n+"/"+den+' in ('+(n/den).toFixed(4).replace(/0+$/,"
 var TABS = {
   home:{ph:"Search everything — P/N, finding, T-Code…",hint:"Type to search across all sections."},
   rect:{ph:"e.g. fan blade, corrosion, 658753, 806064252",hint:RECT.length+" historical records — results update as you type."},
-  alt:{ph:"e.g. CR2662-3-4, MS21076, 0.498",hint:"P/N, partial P/N, or a documented dimension."},
+  alt:{ph:"e.g. CR2662-3-4, MS21076, RTV102, BAC5010",hint:"Rivet/Fastener or Consumable Material — pick a tab below."},
   notes:{ph:"e.g. abradable, exhaust, spinner, Metco",hint:"Searches every Repair Note worksheet."},
   tcode:{ph:"e.g. IW31, task list, equipment",hint:(HB.tcodes||[]).length+" T-Codes from Repair Handbook 101."},
   find:{ph:"e.g. crack, korosi, fretting",hint:(HB.findings||[]).length+" defect definitions."},
@@ -98,11 +101,12 @@ $("themeBtn").addEventListener("click",function(){
 function renderHome(q){
   var fCount=(RN.fasteners||[]).length,
       nCount=(RN.notes||[]).length,
-      altCount=(RN.fasteners||[]).reduce(function(a,x){return a+((x.alt&&x.alt.length)||0);},0);
+      altCount=(RN.fasteners||[]).reduce(function(a,x){return a+((x.alt&&x.alt.length)||0);},0),
+      consCount=consAll().length;
   var h='<div class="grid three" style="margin-top:12px">'
    +stat(RECT.length,"Rectification records")
    +stat(fCount,"Fastener P/N entries")
-   +stat(altCount,"Documented alternate P/N")
+   +stat(consCount,"Consumable material records")
    +stat((HB.tcodes||[]).length,"T-Codes")
    +stat((HB.findings||[]).length,"Finding definitions")
    +stat(nCount+(RN.spinner||[]).length,"Repair note cards")
@@ -114,7 +118,7 @@ function renderHome(q){
 
   h+='<h2>Jump to a tool</h2><div class="grid two">'
    +sc("rect","Rectification Search","Historical findings and their recorded solutions")
-   +sc("alt","Alternate Finder","Rivet, plate nut and insert P/N with documented dimensions")
+   +sc("alt","Material & Alternate Finder","Rivet/fastener P/N, plus consumable material from SEI TVE-2 and EIN (TEA-5)")
    +sc("notes","Repair Notes","Module, abradable, exhaust, flowpath, spinner, CMM")
    +sc("tcode","T-Code Finder","SAP transaction codes by group and function")
    +sc("find","Finding Dictionary","Defect terminology and definitions")
@@ -154,13 +158,14 @@ function globalSearch(q){
   var r=RECT.map(function(x){return {s:rank([F(x.task,1),F(x.sol,.8),F(x.esn,1),F(x.order,1),F(x.engine,.9)],q),x:x};})
             .filter(function(o){return o.s>0;}).length;
   var f=(RN.fasteners||[]).filter(function(x){return scoreFast(x,q)>0;}).length;
+  var c=consAll().filter(function(x){return scoreCons(x,q)>0;}).length;
   var t=(HB.tcodes||[]).filter(function(x){return rank([F(x.code,1.4),F(x.fn,1),F(x.use,.9),F(x.group,.8)],q)>0;}).length;
   var d=(HB.findings||[]).filter(function(x){return rank([F(x.term,1.4),F(x.def,1),F(x.ex,.8)],q)>0;}).length;
   var n=(RN.notes||[]).filter(function(x){return rank([F(x.t,1.3),F(x.m,1),F(x.pn,1),F(JSON.stringify(x.rows),.7)],q)>0;}).length;
-  [["rect","Rectification records",r],["alt","Fastener / alternate P/N",f],["notes","Repair notes",n],
-   ["tcode","T-Codes",t],["find","Finding definitions",d]].forEach(function(p){
+  [["rect","Rectification History",r],["alt","Rivet / Fastener",f],["alt","Consumable Material",c],["notes","Repair Note",n],
+   ["tcode","T-Code",t],["find","Finding Definition",d]].forEach(function(p){
     if(p[2]) hits.push('<button class="shortcut" data-go="'+p[0]+'"><b>'+p[2]+" match"+(p[2]>1?"es":"")
-      +" in "+p[1]+"</b><span>Open this tool with the same search</span></button>");
+      +'</b><span class="tag t-n">'+esc(p[1])+"</span></button>");
   });
   return hits.length? '<div class="grid two">'+hits.join("")+"</div>"
     : '<div class="card empty">No match anywhere in the loaded documents.</div>';
@@ -247,7 +252,15 @@ function fastCard(it,q){
   if(it.flush) b+='<h2>Blind rivet — flush head</h2><ul class="lst">'+it.flush.map(function(x){return "<li>"+hl(x,q)+"</li>";}).join("")+"</ul>";
   return b+'<div class="src">Source: Repair Note Dema.xlsx — '+esc(it.src)+"</div></div>";
 }
+var altSub="rivet";
 function renderAlt(q){
+  var sub='<div class="chips" role="tablist">'
+   +'<button class="chip" data-altsub="rivet" aria-pressed="'+(altSub==="rivet")+'">Rivet / Fastener</button>'
+   +'<button class="chip" data-altsub="cons" aria-pressed="'+(altSub==="cons")+'">Consumable Material</button>'
+   +"</div>";
+  return sub + (altSub==="rivet"? renderRivetAlt(q) : renderConsumable(q));
+}
+function renderRivetAlt(q){
   var all=RN.fasteners||[];
   var counts={platenut:0,insert:0,rivet:0};
   all.forEach(function(x){counts[x.kind]=(counts[x.kind]||0)+1;});
@@ -265,6 +278,71 @@ function renderAlt(q){
    +'<div class="count">'+list.length+" of "+all.length+" entries"+(tokens(q).length?" matching your search":"")+"</div>"
    +(list.length? list.map(function(x){return fastCard(x,q);}).join("")
      : '<div class="card empty"><b>No match in source.</b><p>Nothing in Repair Note Dema.xlsx matches this input. No alternate P/N is generated when the source does not state one.</p></div>');
+}
+
+/* ---------- CONSUMABLE MATERIAL ---------- */
+var consSrc="all", consShown=25;
+/* Normalize EIN and SEI rows into one shape for search/display without merging their meaning. */
+function consNormalize(){
+  var out=[];
+  (EIN.rows||[]).forEach(function(r){
+    out.push({source:"EIN (TEA-5)",file:EIN.file,sheet:r.sheet,row:r.row,
+      name:r.name,pn:r.pn,spec:r.spec,desc:r.desc,alt:r.alt,remarks:r.remarks,extra:r.extra});
+  });
+  (SEI.rows||[]).forEach(function(r){
+    var name=r.name||r.desc||"", pn=r.pn||"", alt=[r.alt1,r.alt2].filter(Boolean).join(" · ");
+    out.push({source:"SEI TVE-2",file:SEI.file,sheet:r.sheet,row:r.row,
+      name:name,pn:pn,spec:r.spec||"",desc:(r.ref?("Ref "+r.ref+(r.mat?(" — "+r.mat):"")):(r.cp?("CP "+r.cp):"")),
+      alt:alt,remarks:r.remarks||"",extra:r.appl||""});
+  });
+  return out;
+}
+var CONS_ALL=null;
+function consAll(){ if(!CONS_ALL) CONS_ALL=consNormalize(); return CONS_ALL; }
+function scoreCons(it,q){
+  return rank([F(it.name,1.5),F(it.pn,1.6),F(it.spec,1.1),F(it.desc,.9),F(it.alt,.9),F(it.remarks,.6),F(it.extra,.7)],q);
+}
+function consCard(it,q){
+  var srcTag = it.source==="EIN (TEA-5)" ? "t-dim" : "t-hist";
+  var b='<div class="card">'
+    +'<span class="tag '+srcTag+'">'+esc(it.source)+"</span>"
+    +(it.name? '<h3 style="margin-top:6px">'+hl(it.name,q)+"</h3>" : "")
+    +'<dl class="kv">'
+    +(it.pn? "<dt>P/N</dt><dd>"+hl(it.pn,q)+"</dd>" : "")
+    +(it.spec? "<dt>Specification</dt><dd>"+hl(it.spec,q)+"</dd>" : "")
+    +"</dl>";
+  if(it.desc) b+='<h2>Description</h2><p style="font-size:13.5px">'+hl(it.desc,q)+"</p>";
+  if(it.alt) b+='<h2>Alternate / cross reference <span class="tag t-doc">as listed in source</span></h2><p class="mono" style="font-size:13px;word-break:break-word">'+hl(it.alt,q)+"</p>";
+  if(it.extra) b+='<h2>Applicability / reference</h2><p style="font-size:13px">'+hl(it.extra,q)+"</p>";
+  if(it.remarks) b+='<h2>Remarks</h2><p class="muted" style="font-size:13px">'+hl(it.remarks,q)+"</p>";
+  b+='<div class="src">Source: '+esc(it.source)+" · File: "+esc(it.file)+" · Worksheet: "+esc(it.sheet)+" · Row: "+it.row+"</div></div>";
+  return b;
+}
+function renderConsumable(q){
+  var all=consAll();
+  var cE=all.filter(function(x){return x.source==="EIN (TEA-5)";}).length;
+  var cS=all.length-cE;
+  var chips='<div class="chips">'
+   +[["all","All sources ("+all.length+")"],["EIN (TEA-5)","EIN (TEA-5) ("+cE+")"],["SEI TVE-2","SEI TVE-2 ("+cS+")"]]
+     .map(function(c){return '<button class="chip" data-cons="'+esc(c[0])+'" aria-pressed="'+(consSrc===c[0])+'">'+c[1]+"</button>";}).join("")
+   +"</div>";
+  var list=all.filter(function(x){return consSrc==="all"||x.source===consSrc;})
+    .map(function(x){return {x:x,s:scoreCons(x,q)};}).filter(function(o){return o.s>0;})
+    .sort(function(a,b){return b.s-a.s;}).map(function(o){return o.x;});
+
+  var dup="";
+  if(tokens(q).length===1){
+    var inE=list.some(function(x){return x.source==="EIN (TEA-5)";}), inS=list.some(function(x){return x.source==="SEI TVE-2";});
+    if(inE&&inS) dup='<div class="note">This search matches entries in <b>both</b> SEI TVE-2 and EIN (TEA-5). They are kept as separate references below and are not merged — compare their fields before assuming they describe the same material.</div>';
+  }
+
+  return chips
+   +'<div class="note">SEI TVE-2 and EIN (TEA-5) are different reference documents and are always shown separately. A shared name or specification is <b>not</b> a documented equivalence unless the source itself states an alternate/cross reference.</div>'
+   +dup
+   +'<div class="count">'+list.length+" of "+all.length+" entries"+(tokens(q).length?" matching your search":"")+"</div>"
+   +(list.length? list.slice(0,consShown).map(function(x){return consCard(x,q);}).join("")
+     +(list.length>consShown? '<button class="more" id="moreCons">Show more ('+(list.length-consShown)+" remaining)</button>" : "")
+     : '<div class="card empty"><b>No match in source.</b><p>Nothing in either consumable material workbook matches this input.</p></div>');
 }
 
 /* ---------- REPAIR NOTES ---------- */
@@ -362,7 +440,9 @@ function renderSrc(){
   var map=[
     ["Home dashboard","Counts computed from all loaded data files; engine shop visit list from Rectification History Database.xlsx (sheet List Engine); pre-read, context and links from Repair Handbook 101.docx"],
     ["Rectification Search","Rectification History Database.xlsx — sheet Main. Each result shows its Excel row."],
-    ["Alternate Finder","Repair Note Dema.xlsx — sheet Plate Nut- Insert and Exhaust Sleeve. Diameter/grip interpretation rules: Repair Handbook 101.docx (fastener identification)."],
+    ["Material & Alternate Finder — Rivet / Fastener","Repair Note Dema.xlsx — sheet Plate Nut- Insert and Exhaust Sleeve. Diameter/grip interpretation rules: Repair Handbook 101.docx (fastener identification)."],
+    ["Material & Alternate Finder — Consumable Material (SEI TVE-2)","list consumable material for SEI 01-2019 & 27-2020.xlsx — all worksheets."],
+    ["Material & Alternate Finder — Consumable Material (EIN (TEA-5))","Consumable Material List - Update 2026.xlsx — all worksheets."],
     ["Repair Notes","Repair Note Dema.xlsx — sheets Module 22x, Module 23x, Exhaust Sleeve, Spinner Cone, Flowpath Repair, CMM or retail."],
     ["T-Code Finder","Repair Handbook 101.docx — T-Code table."],
     ["Finding Dictionary","Repair Handbook 101.docx — finding/defect table."],
@@ -383,6 +463,8 @@ function renderSrc(){
    +'<li>Sheet <b>CMM or retail</b> contains empty tables for CFM56-3 and CFM56-7. They are shown as empty, not filled in.</li>'
    +'<li>Sheet <b>Exhaust Sleeve</b> contains drawing illustrations in the workbook that cannot be carried into the data file; the textual fastener callouts are fully included.</li>'
    +'<li>The handbook GD&amp;T and fastener sections are images only, so they are shown as images and are not searchable text.</li>'
+   +'<li><b>SEI TVE-2</b> and <b>EIN (TEA-5)</b> are kept as separate references throughout. A material appearing in both is never merged into one record — both are shown, and any difference between them is left visible rather than resolved.</li>'
+   +'<li>Consumable material fields shown are exactly what each worksheet provides; sheets differ in columns (e.g. EIN generic sheets use Specification/Product Name/GMF SAP P/N/Remarks, while SEI sheets use CP Number/GMF Approved PN/Alternate PN 1&amp;2), so not every card has the same fields.</li>'
    +"</ul></div>"
    +'<div class="card"><h3>Principle</h3><p><b>Document evidence &gt; model assumption.</b> This site helps you find documented information. It does not replace Engineering judgement, and it does not generate technical data that the source documents do not contain.</p></div>';
 }
@@ -399,12 +481,15 @@ function render(){
   else if(cur==="fast") $("fast").innerHTML=renderFast();
   else if(cur==="src") $("src").innerHTML=renderSrc();
 }
-$("q").addEventListener("input",function(){ rectShown=25; render(); });
+$("q").addEventListener("input",function(){ rectShown=25; consShown=25; render(); });
 document.addEventListener("click",function(e){
   var go=e.target.closest("[data-go]"); if(go){ setTab(go.dataset.go); return; }
   var en=e.target.closest("[data-eng]"); if(en){ rectEngine=en.dataset.eng; rectShown=25; render(); return; }
   var kd=e.target.closest("[data-kind]"); if(kd){ altKind=kd.dataset.kind; render(); return; }
+  var as=e.target.closest("[data-altsub]"); if(as){ altSub=as.dataset.altsub; render(); return; }
+  var cs=e.target.closest("[data-cons]"); if(cs){ consSrc=cs.dataset.cons; consShown=25; render(); return; }
   if(e.target.id==="moreRect"){ rectShown+=25; render(); }
+  if(e.target.id==="moreCons"){ consShown+=25; render(); }
 });
 $("subline").textContent="Document-based reference — TVE-5 · build v"+BUILD.version;
 setTab("home");
