@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Repair Engineering Starter Hub</title>
+<meta name="description" content="Document-based reference tool for Repair Engineering personnel.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="top">
+  <div class="hd">
+    <div class="brand">
+      <div class="ttl">Repair Engineering Starter Hub</div>
+      <div class="sub" id="subline">Document-based reference — TVE-5</div>
+    </div>
+    <button class="iconbtn" id="themeBtn" title="Switch light / dark" aria-label="Switch theme">◐</button>
+  </div>
+  <div class="searchbar">
+    <input id="q" type="search" inputmode="search" autocomplete="off" spellcheck="false"
+      placeholder="Search…" aria-label="Search">
+    <div class="hint" id="hint"></div>
+  </div>
+  <nav class="tabs" role="tablist" id="tabs">
+    <button class="tab" role="tab" data-t="home" aria-selected="true">Home</button>
+    <button class="tab" role="tab" data-t="rect" aria-selected="false">Rectification</button>
+    <button class="tab" role="tab" data-t="alt" aria-selected="false">Alternate Finder</button>
+    <button class="tab" role="tab" data-t="notes" aria-selected="false">Repair Notes</button>
+    <button class="tab" role="tab" data-t="tcode" aria-selected="false">T-Code</button>
+    <button class="tab" role="tab" data-t="find" aria-selected="false">Finding Dictionary</button>
+    <button class="tab" role="tab" data-t="fast" aria-selected="false">Fastener Reference</button>
+    <button class="tab" role="tab" data-t="src" aria-selected="false">Sources</button>
+  </nav>
+</header>
+
+<div class="wrap">
+  <section id="home" class="on"></section>
+  <section id="rect"></section>
+  <section id="alt"></section>
+  <section id="notes"></section>
+  <section id="tcode"></section>
+  <section id="find"></section>
+  <section id="fast"></section>
+  <section id="src"></section>
+</div>
+
+<script src="data/rectification-data.js"></script>
+<script src="data/repair-note-data.js"></script>
+<script src="data/handbook-data.js"></script>
+<script src="data/handbook-images.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
