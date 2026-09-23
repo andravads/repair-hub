@@ -5,43 +5,74 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Repair Engineering Starter Hub</title>
 <meta name="description" content="Document-based reference tool for Repair Engineering personnel.">
+<meta name="theme-color" content="#006298">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<header class="top">
-  <div class="hd">
-    <div class="brand">
-      <div class="ttl">Repair Engineering Starter Hub</div>
-      <div class="sub" id="subline">Document-based reference — TVE-5</div>
-    </div>
-    <button class="iconbtn" id="themeBtn" title="Switch light / dark" aria-label="Switch theme">◐</button>
+
+<header class="appbar">
+  <button class="menubtn" id="menuBtn" aria-label="Open navigation" aria-expanded="false">
+    <span></span><span></span><span></span>
+  </button>
+  <div class="brand">
+    <div class="ttl">Repair Engineering Starter Hub</div>
+    <div class="sub" id="subline">Document-based reference — TVE-5</div>
   </div>
-  <div class="searchbar">
-    <input id="q" type="search" inputmode="search" autocomplete="off" spellcheck="false"
-      placeholder="Search…" aria-label="Search">
-    <div class="hint" id="hint"></div>
-  </div>
-  <nav class="tabs" role="tablist" id="tabs">
-    <button class="tab" role="tab" data-t="home" aria-selected="true">Home</button>
-    <button class="tab" role="tab" data-t="rect" aria-selected="false">Rectification</button>
-    <button class="tab" role="tab" data-t="alt" aria-selected="false">Material &amp; Alternate Finder</button>
-    <button class="tab" role="tab" data-t="notes" aria-selected="false">Repair Notes</button>
-    <button class="tab" role="tab" data-t="tcode" aria-selected="false">T-Code</button>
-    <button class="tab" role="tab" data-t="find" aria-selected="false">Finding Dictionary</button>
-    <button class="tab" role="tab" data-t="fast" aria-selected="false">Fastener Reference</button>
-    <button class="tab" role="tab" data-t="src" aria-selected="false">Sources</button>
-  </nav>
 </header>
 
-<div class="wrap">
-  <section id="home" class="on"></section>
-  <section id="rect"></section>
-  <section id="alt"></section>
-  <section id="notes"></section>
-  <section id="tcode"></section>
-  <section id="find"></section>
-  <section id="fast"></section>
-  <section id="src"></section>
+<div class="shell">
+  <div class="backdrop" id="backdrop"></div>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="sidehead">
+      <span class="sidelogo">RE</span>
+      <div class="sideid">
+        <div class="sidettl">Starter Hub</div>
+        <div class="sidesub">GMF AeroAsia &middot; TVE-5</div>
+      </div>
+      <button class="closebtn" id="closeBtn" aria-label="Close navigation">&#10005;</button>
+    </div>
+    <nav class="tabs" role="tablist" id="tabs">
+      <div class="navgroup-label">Overview</div>
+      <button class="tab" role="tab" data-t="home" aria-selected="true">Home</button>
+
+      <div class="navgroup-label">Reference</div>
+      <button class="tab" role="tab" data-t="rect" aria-selected="false">Rectification</button>
+      <button class="tab" role="tab" data-t="notes" aria-selected="false">Repair Notes</button>
+      <button class="tab" role="tab" data-t="tcode" aria-selected="false">T-Code</button>
+      <button class="tab" role="tab" data-t="find" aria-selected="false">Finding Dictionary</button>
+
+      <div class="navgroup-label">Material</div>
+      <button class="tab" role="tab" data-t="alt" aria-selected="false">Material &amp; Alternate Finder</button>
+      <button class="tab" role="tab" data-t="fast" aria-selected="false">Fastener Reference</button>
+
+      <div class="navgroup-label">System</div>
+      <button class="tab" role="tab" data-t="src" aria-selected="false">Sources</button>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="searchbar">
+      <div class="searchwrap">
+        <svg class="sic" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M21 21l-4.35-4.35M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <input id="q" type="search" inputmode="search" autocomplete="off" spellcheck="false"
+          placeholder="Search…" aria-label="Search">
+        <button class="clearbtn" id="clearBtn" aria-label="Clear search" hidden>&#10005;</button>
+      </div>
+      <div class="hint" id="hint"></div>
+    </div>
+
+    <div class="wrap">
+      <section id="home" class="on"></section>
+      <section id="rect"></section>
+      <section id="alt"></section>
+      <section id="notes"></section>
+      <section id="tcode"></section>
+      <section id="find"></section>
+      <section id="fast"></section>
+      <section id="src"></section>
+    </div>
+  </main>
 </div>
 
 <script src="data/rectification-data.js"></script>

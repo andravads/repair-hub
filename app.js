@@ -84,17 +84,33 @@ function setTab(t){
   for(var j=0;j<ss.length;j++) ss[j].classList.toggle("on", ss[j].id===t);
   var cfg=TABS[t]||{};
   $("q").placeholder=cfg.ph||"Search…";
-  $("q").parentNode.style.display = cfg.ph ? "" : "none";
+  $("q").closest(".searchbar").style.display = cfg.ph ? "" : "none";
   $("hint").textContent=cfg.hint||"";
   render();
+  closeDrawer();
   window.scrollTo(0,0);
 }
 $("tabs").addEventListener("click",function(e){
   var b=e.target.closest(".tab"); if(b) setTab(b.dataset.t);
 });
-$("themeBtn").addEventListener("click",function(){
-  var d=document.documentElement, dark=getComputedStyle(d).getPropertyValue("--bg").trim()==="#0e1217";
-  d.setAttribute("data-theme", dark?"light":"dark");
+
+/* mobile navigation drawer (UI-only; no effect on data/search logic) */
+function openDrawer(){
+  document.body.classList.add("drawer-open");
+  $("menuBtn").setAttribute("aria-expanded","true");
+}
+function closeDrawer(){
+  document.body.classList.remove("drawer-open");
+  $("menuBtn").setAttribute("aria-expanded","false");
+}
+$("menuBtn").addEventListener("click",openDrawer);
+$("closeBtn").addEventListener("click",closeDrawer);
+$("backdrop").addEventListener("click",closeDrawer);
+
+/* search clear button (UI-only convenience; same #q input drives all rendering) */
+function syncClearBtn(){ $("clearBtn").hidden = !$("q").value; }
+$("clearBtn").addEventListener("click",function(){
+  $("q").value=""; syncClearBtn(); rectShown=25; consShown=25; render(); $("q").focus();
 });
 
 /* ---------- HOME ---------- */
@@ -481,7 +497,7 @@ function render(){
   else if(cur==="fast") $("fast").innerHTML=renderFast();
   else if(cur==="src") $("src").innerHTML=renderSrc();
 }
-$("q").addEventListener("input",function(){ rectShown=25; consShown=25; render(); });
+$("q").addEventListener("input",function(){ rectShown=25; consShown=25; syncClearBtn(); render(); });
 document.addEventListener("click",function(e){
   var go=e.target.closest("[data-go]"); if(go){ setTab(go.dataset.go); return; }
   var en=e.target.closest("[data-eng]"); if(en){ rectEngine=en.dataset.eng; rectShown=25; render(); return; }
