@@ -4,12 +4,13 @@
 (function () {
 "use strict";
 
-var BUILD = { version: "1.1.0", date: "2026-09-22", sources: [
+var BUILD = { version: "1.2.0", date: "2026-09-29", sources: [
   { file: "Repair Handbook 101.docx", note: "TVE-5 — T-Codes, finding definitions, GD&T, plate nut identification, fastener references, important links" },
-  { file: "Rectification History Database.xlsx", note: "sheet Main (historical rectification records) and sheet List Engine (shop visit list)" },
+  { file: "Rectification History Database.xlsx", note: "sheet Main (historical rectification records) and sheet List Engine (shop visit list) — History records view" },
   { file: "Repair Note Dema.xlsx", note: "sheets Module 22x, Module 23x, Plate Nut- Insert, Exhaust Sleeve, Spinner Cone, Flowpath Repair, CMM or retail" },
   { file: "list consumable material for SEI 01-2019 & 27-2020.xlsx", note: "Reference label SEI TVE-2 — all worksheets" },
-  { file: "Consumable Material List - Update 2026.xlsx", note: "Reference label EIN (TEA-5) — all worksheets" }
+  { file: "Consumable Material List - Update 2026.xlsx", note: "Reference label EIN (TEA-5) — all worksheets" },
+  { file: "ZAS_CMSORD_2026_Operation_Cleaned.xlsx", note: "2,829 past repair orders, one record per order with its ordered repair steps — Repair scheme search view" }
 ]};
 
 var RECT = window.RECTIFICATION || [], ENGINES = window.ENGINE_LIST || [],
@@ -67,7 +68,7 @@ function frac(n,den){return n+"/"+den+' in ('+(n/den).toFixed(4).replace(/0+$/,"
 /* ---------- tabs ---------- */
 var TABS = {
   home:{ph:"Search everything — P/N, finding, T-Code…",hint:"Type to search across all sections."},
-  rect:{ph:"e.g. fan blade, corrosion, 658753, 806064252",hint:RECT.length+" historical records — results update as you type."},
+  rect:{ph:"Search part number, part name or keyword…",hint:"Repair scheme search or History records — pick a view below."},
   alt:{ph:"e.g. CR2662-3-4, MS21076, RTV102, BAC5010",hint:"Rivet/Fastener or Consumable Material — pick a tab below."},
   notes:{ph:"e.g. abradable, exhaust, spinner, Metco",hint:"Searches every Repair Note worksheet."},
   tcode:{ph:"e.g. IW31, task list, equipment",hint:(HB.tcodes||[]).length+" T-Codes from Repair Handbook 101."},
@@ -187,9 +188,174 @@ function globalSearch(q){
     : '<div class="card empty">No match anywhere in the loaded documents.</div>';
 }
 
-/* ---------- RECTIFICATION ---------- */
+/* ---------- RECTIFICATION: sub-tabs + REPAIR SCHEME SEARCH ---------- */
+/* Past repair records are loaded on demand (first visit to this page only), indexed once in memory.
+   Reference only — never an approved procedure. */
+var rectSub="scheme", schemeShown=25, schemeType="ALL", schemeEng="ALL", schemeOpen={};
+var SCH={state:"idle",rec:[],idx:[],types:{},engines:{},tries:0};
+var TYPE_LABEL={MDR:"MDR",NON_ROUTINE:"Non-routine"}, TYPE_TAG={MDR:"t-dim",NON_ROUTINE:"t-hist"};
+
+function alnum(s){return String(s==null?"":s).toLowerCase().replace(/[^a-z0-9]/g,"");}
+function dash(v){return v?esc(v):"–";}
+function trunc(s,n){s=String(s||"");return s.length>n?s.slice(0,n-1).replace(/\s+$/,"")+"…":s;}
+
+function schemeLoad(){
+  if(SCH.state==="loading"||SCH.state==="ready") return;
+  SCH.state="loading";
+  var sc=document.createElement("script");
+  sc.src="data/repair-schemes.js"+(SCH.tries? "?r="+Date.now() : "");
+  sc.async=true;
+  sc.onload=function(){
+    var d=window.REPAIR_SCHEMES;
+    if(!d||!d.records){ schemeFail(sc); return; }
+    SCH.rec=d.records;
+    SCH.idx=SCH.rec.map(function(r){
+      return {pn:(r.partNumber||"").toLowerCase(), pk:alnum(r.partNumber), nm:(r.partName||"").toLowerCase(),
+              tt:(r.title||"").toLowerCase(),
+              ot:((r.engine||"")+" "+r.orderNo+" "+(r.serialNo||"")).toLowerCase(),
+              ok:alnum(r.orderNo), sk:alnum(r.serialNo)};
+    });
+    SCH.types={}; SCH.engines={};
+    SCH.rec.forEach(function(r){
+      SCH.types[r.type]=(SCH.types[r.type]||0)+1;
+      if(r.engine) SCH.engines[r.engine]=(SCH.engines[r.engine]||0)+1;
+    });
+    SCH.state="ready";
+    if(cur==="rect"&&rectSub==="scheme") render();
+  };
+  sc.onerror=function(){ schemeFail(sc); };
+  document.head.appendChild(sc);
+}
+function schemeFail(sc){
+  SCH.state="error"; SCH.tries++;
+  if(sc&&sc.parentNode) sc.parentNode.removeChild(sc);
+  if(cur==="rect"&&rectSub==="scheme") render();
+}
+
+/* Ranking: part number > part name > finding title > order / serial / engine.
+   All keywords must match (AND). If every keyword contains a digit the query is treated as a
+   part-number style query: separators are ignored, so "338-070-804", "338070804" and
+   "338 070 804" return the same records. */
+function schemeSearch(q){
+  var ts=q.toLowerCase().split(/\s+/).filter(Boolean), out=[], i, x, r;
+  function pass(r){return (schemeType==="ALL"||r.type===schemeType)&&(schemeEng==="ALL"||r.engine===schemeEng);}
+  function cmp(a,b){return b.s-a.s||a.i-b.i;}
+  if(!ts.length){
+    for(i=0;i<SCH.rec.length;i++) if(pass(SCH.rec[i])) out.push({i:i,s:0});
+    return {list:out,pn:""};
+  }
+  var qk=alnum(q);
+  if(qk.length>=5 && ts.every(function(t){return /\d/.test(t);})){
+    for(i=0;i<SCH.rec.length;i++){
+      r=SCH.rec[i]; if(!pass(r)) continue; x=SCH.idx[i];
+      var s=0;
+      if(x.pk===qk) s=200; else if(x.pk.indexOf(qk)===0) s=150; else if(x.pk.indexOf(qk)>-1) s=100;
+      else if(x.ok.indexOf(qk)>-1) s=80; else if(x.sk.indexOf(qk)>-1) s=70;
+      if(s) out.push({i:i,s:s});
+    }
+    if(out.length){ out.sort(cmp); return {list:out,pn:qk}; }
+    out=[];
+  }
+  var seen={}; ts=ts.filter(function(t){if(seen[t])return false;seen[t]=1;return true;});
+  for(i=0;i<SCH.rec.length;i++){
+    r=SCH.rec[i]; if(!pass(r)) continue; x=SCH.idx[i];
+    var total=0, ok=true;
+    for(var j=0;j<ts.length;j++){
+      var t=ts[j], tk=alnum(t), best=0;
+      if(t.length>=2 && (x.pn.indexOf(t)>-1 || (tk.length>=3 && x.pk.indexOf(tk)>-1)))
+        best=(x.pn===t||x.pk===tk)?150:((x.pn.indexOf(t)===0||x.pk.indexOf(tk)===0)?120:100);
+      else if(x.nm.indexOf(t)>-1) best=(x.nm===t)?90:60;
+      else if(x.tt.indexOf(t)>-1) best=40;
+      else if(x.ot.indexOf(t)>-1) best=20;
+      if(!best){ ok=false; break; }
+      total+=best;
+    }
+    if(ok) out.push({i:i,s:total});
+  }
+  out.sort(cmp);
+  return {list:out,pn:""};
+}
+
+/* highlight a part number ignoring dashes/spaces/colons between characters */
+function hlPN(t,key){
+  t=String(t==null?"":t);
+  if(!key) return esc(t);
+  var m=new RegExp(key.split("").join("[^a-z0-9]*"),"i").exec(t);
+  if(!m) return esc(t);
+  return esc(t.slice(0,m.index))+"<mark>"+esc(m[0])+"</mark>"+esc(t.slice(m.index+m[0].length));
+}
+
+function schemeBody(r){
+  var h='<dl class="kv"><dt>Order</dt><dd>'+dash(r.orderNo)+"</dd><dt>Part no.</dt><dd>"+dash(r.partNumber)
+    +"</dd><dt>Part name</dt><dd>"+dash(r.partName)+"</dd><dt>Engine</dt><dd>"+dash(r.engine)
+    +"</dd><dt>Serial no.</dt><dd>"+dash(r.serialNo)+"</dd></dl>"
+    +'<h2>Finding</h2><p style="font-size:13.5px;overflow-wrap:anywhere">'+dash(r.title)+"</p>"
+    +"<h2>Repair steps</h2>";
+  if(!r.steps.length) return h+'<p class="muted">No repair steps recorded.</p>';
+  if(r.steps.some(function(s){return s.text.length>=260;}))
+    h+='<p class="muted">Step text is shown as recorded and may be shortened at source.</p>';
+  return h+'<ol class="steps">'+r.steps.map(function(s){
+    return '<li><div class="s-step-h"><b>'+esc(s.no)+"</b>"+(s.title?" · "+esc(s.title):"")+"</div>"
+      +(s.text?'<div class="s-step-t">'+esc(s.text)+"</div>":"")+"</li>";
+  }).join("")+"</ol>";
+}
+function schemeCard(i,q,pq){
+  var r=SCH.rec[i], open=!!schemeOpen[i];
+  function hh(t){return pq? hlPN(t,pq) : hl(t,q);}
+  var n=r.steps.length;
+  var meta='<span class="tag '+(TYPE_TAG[r.type]||"t-n")+'">'+esc(TYPE_LABEL[r.type]||r.type)+"</span>"
+    +'<span class="tag t-n">Order '+esc(r.orderNo)+"</span>"
+    +(r.engine?'<span class="tag t-n">'+esc(r.engine)+"</span>":"")
+    +'<span class="tag t-n">'+n+(n===1?" step":" steps")+"</span>";
+  var sub='<span class="mono">'+(r.partNumber?hh(r.partNumber):"–")+"</span> · "+(r.partName?hh(r.partName):"–");
+  return '<details class="card scheme" data-i="'+i+'"'+(open?" open":"")+'><summary aria-expanded="'+open+'">'
+    +'<div class="s-title">'+(r.title?(pq?esc(trunc(r.title,120)):hl(trunc(r.title,120),q)):"(no title recorded)")+"</div>"
+    +'<div class="s-meta">'+meta+'</div><div class="s-sub">'+sub+"</div></summary>"
+    +'<div class="sbody">'+(open?schemeBody(r):"")+"</div></details>";
+}
+function schemeFilters(){
+  function chip(attr,val,label,on){return '<button class="chip" '+attr+'="'+esc(val)+'" aria-pressed="'+on+'">'+esc(label)+"</button>";}
+  var total=SCH.rec.length;
+  var tRow=chip("data-stype","ALL","All ("+total+")",schemeType==="ALL")
+    +["MDR","NON_ROUTINE"].filter(function(k){return SCH.types[k];}).map(function(k){
+        return chip("data-stype",k,TYPE_LABEL[k]+" ("+SCH.types[k]+")",schemeType===k);}).join("");
+  var eRow=chip("data-sengine","ALL","All ("+total+")",schemeEng==="ALL")
+    +Object.keys(SCH.engines).sort().map(function(k){
+        return chip("data-sengine",k,k+" ("+SCH.engines[k]+")",schemeEng===k);}).join("");
+  return '<div class="chip-label">Type</div><div class="chips">'+tRow+"</div>"
+    +'<div class="chip-label">Engine</div><div class="chips">'+eRow+"</div>";
+}
+function renderScheme(q){
+  if(SCH.state==="idle") schemeLoad();
+  if(SCH.state==="idle"||SCH.state==="loading")
+    return '<div class="card" aria-busy="true" role="status"><p class="muted">Loading repair records…</p>'
+      +'<div class="skel"></div><div class="skel" style="width:80%"></div><div class="skel" style="width:60%"></div></div>';
+  if(SCH.state==="error")
+    return '<div class="card empty" role="alert"><b>Repair records could not be loaded.</b>'
+      +'<p>Check your connection and try again.</p><button class="more" data-schemeretry="1">Retry</button></div>';
+  var note='<div class="note">Reference only – derived from past repair records. Always verify against the approved manual / repair document.</div>';
+  var filters=schemeFilters(), active=schemeType!=="ALL"||schemeEng!=="ALL";
+  if(!tokens(q).length && !active)
+    return note+filters+'<div class="card empty"><b>Search by part number, part name, or keyword.</b>'
+      +"<p>"+SCH.rec.length.toLocaleString("en-US")+" repair records available.</p></div>";
+  var res=schemeSearch(q), list=res.list, n=list.length;
+  return note+filters
+    +'<div class="count" aria-live="polite">'+n.toLocaleString("en-US")+" result"+(n===1?"":"s")+" · tap a title to expand</div>"
+    +(n? list.slice(0,schemeShown).map(function(o){return schemeCard(o.i,q,res.pn);}).join("")
+        +(n>schemeShown?'<button class="more" id="moreScheme">Show more ('+(n-schemeShown).toLocaleString("en-US")+" left)</button>":"")
+      : '<div class="card empty"><b>No matching records found.</b><p>Try fewer words, part of the part number, or clear a filter.</p></div>');
+}
+
+function rectSubBar(){
+  return '<div class="chips" role="tablist">'
+   +'<button class="chip" data-rectsub="scheme" aria-pressed="'+(rectSub==="scheme")+'">Repair scheme search</button>'
+   +'<button class="chip" data-rectsub="hist" aria-pressed="'+(rectSub==="hist")+'">History records</button></div>';
+}
+function renderRect(q){ return rectSubBar()+(rectSub==="scheme"?renderScheme(q):renderRectHist(q)); }
+
+/* ---------- RECTIFICATION: history records (previous content, unchanged) ---------- */
 var rectEngine="ALL", rectShown=25;
-function renderRect(q){
+function renderRectHist(q){
   var engs={}, i;
   for(i=0;i<RECT.length;i++){ var e=RECT[i].engine||"(not stated)"; engs[e]=(engs[e]||0)+1; }
   var keys=Object.keys(engs).sort();
@@ -455,7 +621,8 @@ function renderFast(){
 function renderSrc(){
   var map=[
     ["Home dashboard","Counts computed from all loaded data files; engine shop visit list from Rectification History Database.xlsx (sheet List Engine); pre-read, context and links from Repair Handbook 101.docx"],
-    ["Rectification Search","Rectification History Database.xlsx — sheet Main. Each result shows its Excel row."],
+    ["Rectification — Repair scheme search","ZAS_CMSORD_2026_Operation_Cleaned.xlsx (order and operation export), one card per order with its ordered repair steps. Loaded on demand, not shown until you open this view."],
+    ["Rectification — History records","Rectification History Database.xlsx — sheet Main. Each result shows its Excel row."],
     ["Material & Alternate Finder — Rivet / Fastener","Repair Note Dema.xlsx — sheet Plate Nut- Insert and Exhaust Sleeve. Diameter/grip interpretation rules: Repair Handbook 101.docx (fastener identification)."],
     ["Material & Alternate Finder — Consumable Material (SEI TVE-2)","list consumable material for SEI 01-2019 & 27-2020.xlsx — all worksheets."],
     ["Material & Alternate Finder — Consumable Material (EIN (TEA-5))","Consumable Material List - Update 2026.xlsx — all worksheets."],
@@ -481,6 +648,9 @@ function renderSrc(){
    +'<li>The handbook GD&amp;T and fastener sections are images only, so they are shown as images and are not searchable text.</li>'
    +'<li><b>SEI TVE-2</b> and <b>EIN (TEA-5)</b> are kept as separate references throughout. A material appearing in both is never merged into one record — both are shown, and any difference between them is left visible rather than resolved.</li>'
    +'<li>Consumable material fields shown are exactly what each worksheet provides; sheets differ in columns (e.g. EIN generic sheets use Specification/Product Name/GMF SAP P/N/Remarks, while SEI sheets use CP Number/GMF Approved PN/Alternate PN 1&amp;2), so not every card has the same fields.</li>'
+   +'<li>In Repair scheme search, part no./part name/serial no. are taken from the order header where present, falling back to the operation-level material fields only when the header is blank — about 574 of 2,829 orders have no part number recorded and about 938 have no serial number; both are shown as “–”, never guessed.</li>'
+   +'<li>Engine in Repair scheme search is shown only where a CFM56/GE90/PW127/APU GTCP designation appears in the order’s own part, assembly or finding text (about 1,924 of 2,829 orders have none recorded and show no engine chip) — it is read from the order, never inferred from other orders.</li>'
+   +'<li>Repair step text in Repair scheme search is shown exactly as recorded in the order, including where the source itself truncates it.</li>'
    +"</ul></div>"
    +'<div class="card"><h3>Principle</h3><p><b>Document evidence &gt; model assumption.</b> This site helps you find documented information. It does not replace Engineering judgement, and it does not generate technical data that the source documents do not contain.</p></div>';
 }
@@ -497,16 +667,33 @@ function render(){
   else if(cur==="fast") $("fast").innerHTML=renderFast();
   else if(cur==="src") $("src").innerHTML=renderSrc();
 }
-$("q").addEventListener("input",function(){ rectShown=25; consShown=25; syncClearBtn(); render(); });
+$("q").addEventListener("input",function(){ rectShown=25; consShown=25; schemeShown=25; syncClearBtn(); render(); });
 document.addEventListener("click",function(e){
   var go=e.target.closest("[data-go]"); if(go){ setTab(go.dataset.go); return; }
   var en=e.target.closest("[data-eng]"); if(en){ rectEngine=en.dataset.eng; rectShown=25; render(); return; }
   var kd=e.target.closest("[data-kind]"); if(kd){ altKind=kd.dataset.kind; render(); return; }
   var as=e.target.closest("[data-altsub]"); if(as){ altSub=as.dataset.altsub; render(); return; }
   var cs=e.target.closest("[data-cons]"); if(cs){ consSrc=cs.dataset.cons; consShown=25; render(); return; }
+  var rs=e.target.closest("[data-rectsub]"); if(rs){ rectSub=rs.dataset.rectsub; render(); return; }
+  var st=e.target.closest("[data-stype]"); if(st){ schemeType=st.dataset.stype; schemeShown=25; render(); return; }
+  var se=e.target.closest("[data-sengine]"); if(se){ schemeEng=se.dataset.sengine; schemeShown=25; render(); return; }
+  if(e.target.closest("[data-schemeretry]")){ SCH.state="idle"; render(); return; }
   if(e.target.id==="moreRect"){ rectShown+=25; render(); }
   if(e.target.id==="moreCons"){ consShown+=25; render(); }
+  if(e.target.id==="moreScheme"){ schemeShown+=25; render(); }
 });
+/* Lazily render the expanded body of a repair-scheme card the first time it is opened,
+   without a full re-render (keeps scroll position and other open cards untouched). */
+document.addEventListener("toggle",function(e){
+  var d=e.target;
+  if(!(d.tagName==="DETAILS" && d.classList && d.classList.contains("scheme"))) return;
+  var i=parseInt(d.dataset.i,10);
+  schemeOpen[i]=d.open;
+  if(d.open){
+    var body=d.querySelector(".sbody");
+    if(body && body.dataset.filled!=="1"){ body.innerHTML=schemeBody(SCH.rec[i]); body.dataset.filled="1"; }
+  }
+},true);
 $("subline").textContent="Document-based reference — TVE-5 · build v"+BUILD.version;
 setTab("home");
 })();

@@ -31,7 +31,9 @@ repair-engineering-starter-hub/
 │   ├── handbook-data.js          Repair Handbook 101.docx (text)
 │   ├── handbook-images.js        image manifest for the handbook illustrations
 │   ├── consumable-sei.js         SEI TVE-2 — list consumable material for SEI 01-2019 & 27-2020.xlsx
-│   └── consumable-ein.js         EIN (TEA-5) — Consumable Material List - Update 2026.xlsx
+│   ├── consumable-ein.js         EIN (TEA-5) — Consumable Material List - Update 2026.xlsx
+│   └── repair-schemes.js         ZAS_CMSORD_2026_Operation_Cleaned.xlsx — fetched on demand, not
+│                                 loaded by index.html directly (see app.js: schemeLoad)
 ├── assets/handbook-images/       19 illustrations extracted from the handbook
 ├── README.md
 └── DEPLOYMENT_GUIDE.md
@@ -44,9 +46,16 @@ requires regenerating the matching file in `data/`.
 
 - **Home** — record counts, quick search across every tool, shortcuts, pre-read WI-TV-001,
   link penting, engine shop visit list.
-- **Rectification Search** — 399 historical records, live search over Operational Task,
-  Solution, ESN, Order and Engine Type, with engine filter chips and the Excel row on
-  every result.
+- **Rectification** — two views, switched with a chip bar, sharing the one search box:
+  - *Repair scheme search* — 2,829 past repair orders (`ZAS_CMSORD_2026_Operation_Cleaned.xlsx`),
+    searchable by part number, part name, title or keyword, with Type (MDR / Non-routine)
+    and Engine filters. Compact accordion cards expand to show the full order detail and
+    its ordered repair steps. Reference only — never an approved procedure. Loaded lazily
+    the first time this view is opened (`data/repair-schemes.js`, ~3.4 MB, not bundled into
+    the app's main script), and only that one file needs replacing on a future data update.
+  - *History records* — 399 historical records, live search over Operational Task,
+    Solution, ESN, Order and Engine Type, with engine filter chips and the Excel row on
+    every result. Unchanged from the previous release.
 - **Material & Alternate Finder** — two sub-tabs:
   - *Rivet / Fastener* — 29 plate nut / key-locked insert / rivet entries with documented
     alternates and dimensions, plus family / shank diameter / grip classification.
@@ -67,6 +76,17 @@ case-insensitive, accepts partial words and partial P/Ns, supports multiple keyw
 (every keyword must match somewhere), and ranks exact matches above prefix above partial.
 Strings are normalised once at query time and the datasets are small enough for this to
 feel instant.
+
+## Repair scheme search — part number matching
+
+A search matches with or without dashes, spaces or colons: `338-070-804`, `338070804`
+and `338 070 804` return the same records. Results rank part number match above part
+name match above title/other match; multiple keywords must all match somewhere (AND).
+No SAP/internal field names (ZIW39, ZAS_CMSORD, SERNR, MATNR, LTXT, AUFNR, GA02, GA05)
+appear anywhere in the UI — only Order, Part no., Part name, Engine, Serial no. and
+Repair steps. About 574 of 2,829 orders have no part number recorded, about 938 have no
+serial number, and about 1,924 have no engine designation in their own data; each shows
+as "–" or no chip rather than being filled in from another order.
 
 ## Consumable Material — two references, never merged
 
