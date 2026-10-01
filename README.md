@@ -32,7 +32,7 @@ repair-engineering-starter-hub/
 │   ├── handbook-images.js        image manifest for the handbook illustrations
 │   ├── consumable-sei.js         SEI TVE-2 — list consumable material for SEI 01-2019 & 27-2020.xlsx
 │   ├── consumable-ein.js         EIN (TEA-5) — Consumable Material List - Update 2026.xlsx
-│   └── repair-schemes.js         ZAS_CMSORD_2026_Operation_Cleaned.xlsx — fetched on demand, not
+│   └── repair-schemes.js         ZAS_CMSORD_2025_2026_Combined_Cleaned.xlsx — fetched on demand, not
 │                                 loaded by index.html directly (see app.js: schemeLoad)
 ├── assets/handbook-images/       19 illustrations extracted from the handbook
 ├── README.md
@@ -47,12 +47,15 @@ requires regenerating the matching file in `data/`.
 - **Home** — record counts, quick search across every tool, shortcuts, pre-read WI-TV-001,
   link penting, engine shop visit list.
 - **Rectification** — two views, switched with a chip bar, sharing the one search box:
-  - *Repair scheme search* — 2,829 past repair orders (`ZAS_CMSORD_2026_Operation_Cleaned.xlsx`),
-    searchable by part number, part name, title or keyword, with Type (MDR / Non-routine)
-    and Engine filters. Compact accordion cards expand to show the full order detail and
-    its ordered repair steps. Reference only — never an approved procedure. Loaded lazily
-    the first time this view is opened (`data/repair-schemes.js`, ~3.4 MB, not bundled into
-    the app's main script), and only that one file needs replacing on a future data update.
+  - *Repair scheme search* — 7,020 past repair orders, full year 2025 plus Jan–Sep 2026
+    (`ZAS_CMSORD_2025_2026_Combined_Cleaned.xlsx`), searchable by part number, part name,
+    group, title or keyword, with Type (MDR / Non-routine) and Engine filters. Compact
+    accordion cards expand to show the full order detail (including Group and the source
+    Year) and its ordered repair steps. Reference only — never an approved procedure.
+    Loaded lazily the first time this view is opened (`data/repair-schemes.js`, ~9.2 MB
+    uncompressed — Vercel serves static assets gzip/brotli-compressed automatically, so
+    the actual network transfer is well under that — not bundled into the app's main
+    script), and only that one file needs replacing on a future data update.
   - *History records* — 399 historical records, live search over Operational Task,
     Solution, ESN, Order and Engine Type, with engine filter chips and the Excel row on
     every result. Unchanged from the previous release.
@@ -82,11 +85,15 @@ feel instant.
 A search matches with or without dashes, spaces or colons: `338-070-804`, `338070804`
 and `338 070 804` return the same records. Results rank part number match above part
 name match above title/other match; multiple keywords must all match somewhere (AND).
-No SAP/internal field names (ZIW39, ZAS_CMSORD, SERNR, MATNR, LTXT, AUFNR, GA02, GA05)
-appear anywhere in the UI — only Order, Part no., Part name, Engine, Serial no. and
-Repair steps. About 574 of 2,829 orders have no part number recorded, about 938 have no
-serial number, and about 1,924 have no engine designation in their own data; each shows
-as "–" or no chip rather than being filled in from another order.
+No SAP/internal field names (ZIW39, ZAS_CMSORD, SERNR, MATNR, LTXT, AUFNR, GA02, GA05,
+SOURCE_PERIOD) appear anywhere in the UI — only Order, Part no., Part name, Group, Engine,
+Serial no., Year and Repair steps. About 1,142 of 7,020 orders have no part number
+recorded, about 2,907 have no serial number, and about 5,341 have no engine designation
+in their own data; each shows as "–" or no chip rather than being filled in from another
+order. Group is only present in the 2026 export — all 4,191 orders from the 2025 export
+have no group code, so the Grp chip and detail row are hidden on every one of them. Year
+is the year of the source export an order came from (2025 or 2026); the month is not
+recorded or shown, per request.
 
 ## Consumable Material — two references, never merged
 

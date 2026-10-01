@@ -4,13 +4,13 @@
 (function () {
 "use strict";
 
-var BUILD = { version: "1.2.0", date: "2026-09-29", sources: [
+var BUILD = { version: "1.3.0", date: "2026-10-01", sources: [
   { file: "Repair Handbook 101.docx", note: "TVE-5 — T-Codes, finding definitions, GD&T, plate nut identification, fastener references, important links" },
   { file: "Rectification History Database.xlsx", note: "sheet Main (historical rectification records) and sheet List Engine (shop visit list) — History records view" },
   { file: "Repair Note Dema.xlsx", note: "sheets Module 22x, Module 23x, Plate Nut- Insert, Exhaust Sleeve, Spinner Cone, Flowpath Repair, CMM or retail" },
   { file: "list consumable material for SEI 01-2019 & 27-2020.xlsx", note: "Reference label SEI TVE-2 — all worksheets" },
   { file: "Consumable Material List - Update 2026.xlsx", note: "Reference label EIN (TEA-5) — all worksheets" },
-  { file: "ZAS_CMSORD_2026_Operation_Cleaned.xlsx", note: "2,829 past repair orders, one record per order with its ordered repair steps — Repair scheme search view" }
+  { file: "ZAS_CMSORD_2025_2026_Combined_Cleaned.xlsx", note: "7,020 past repair orders (full year 2025 + Jan–Sep 2026), one record per order with its ordered repair steps — Repair scheme search view" }
 ]};
 
 var RECT = window.RECTIFICATION || [], ENGINES = window.ENGINE_LIST || [],
@@ -212,8 +212,8 @@ function schemeLoad(){
     SCH.idx=SCH.rec.map(function(r){
       return {pn:(r.partNumber||"").toLowerCase(), pk:alnum(r.partNumber), nm:(r.partName||"").toLowerCase(),
               tt:(r.title||"").toLowerCase(),
-              ot:((r.engine||"")+" "+r.orderNo+" "+(r.serialNo||"")).toLowerCase(),
-              ok:alnum(r.orderNo), sk:alnum(r.serialNo)};
+              ot:((r.engine||"")+" "+r.orderNo+" "+(r.serialNo||"")+" "+(r.group||"")).toLowerCase(),
+              ok:alnum(r.orderNo), sk:alnum(r.serialNo), gk:alnum(r.group)};
     });
     SCH.types={}; SCH.engines={};
     SCH.rec.forEach(function(r){
@@ -250,7 +250,7 @@ function schemeSearch(q){
       r=SCH.rec[i]; if(!pass(r)) continue; x=SCH.idx[i];
       var s=0;
       if(x.pk===qk) s=200; else if(x.pk.indexOf(qk)===0) s=150; else if(x.pk.indexOf(qk)>-1) s=100;
-      else if(x.ok.indexOf(qk)>-1) s=80; else if(x.sk.indexOf(qk)>-1) s=70;
+      else if(x.ok.indexOf(qk)>-1) s=80; else if(x.gk && x.gk.indexOf(qk)>-1) s=75; else if(x.sk.indexOf(qk)>-1) s=70;
       if(s) out.push({i:i,s:s});
     }
     if(out.length){ out.sort(cmp); return {list:out,pn:qk}; }
@@ -286,8 +286,10 @@ function hlPN(t,key){
 }
 
 function schemeBody(r){
-  var h='<dl class="kv"><dt>Order</dt><dd>'+dash(r.orderNo)+"</dd><dt>Part no.</dt><dd>"+dash(r.partNumber)
-    +"</dd><dt>Part name</dt><dd>"+dash(r.partName)+"</dd><dt>Engine</dt><dd>"+dash(r.engine)
+  var h='<dl class="kv"><dt>Order</dt><dd>'+dash(r.orderNo)+"</dd><dt>Year</dt><dd>"+dash(r.year)
+    +"</dd><dt>Part no.</dt><dd>"+dash(r.partNumber)
+    +"</dd><dt>Part name</dt><dd>"+dash(r.partName)+"</dd><dt>Group</dt><dd>"+dash(r.group)
+    +"</dd><dt>Engine</dt><dd>"+dash(r.engine)
     +"</dd><dt>Serial no.</dt><dd>"+dash(r.serialNo)+"</dd></dl>"
     +'<h2>Finding</h2><p style="font-size:13.5px;overflow-wrap:anywhere">'+dash(r.title)+"</p>"
     +"<h2>Repair steps</h2>";
@@ -308,9 +310,10 @@ function schemeCard(i,q,pq){
     +(r.engine?'<span class="tag t-n">'+esc(r.engine)+"</span>":"")
     +'<span class="tag t-n">'+n+(n===1?" step":" steps")+"</span>";
   var sub='<span class="mono">'+(r.partNumber?hh(r.partNumber):"–")+"</span> · "+(r.partName?hh(r.partName):"–");
+  var grp=r.group? '<div class="s-grp"><span class="tag t-n">Grp '+hh(r.group)+"</span></div>" : "";
   return '<details class="card scheme" data-i="'+i+'"'+(open?" open":"")+'><summary aria-expanded="'+open+'">'
     +'<div class="s-title">'+(r.title?(pq?esc(trunc(r.title,120)):hl(trunc(r.title,120),q)):"(no title recorded)")+"</div>"
-    +'<div class="s-meta">'+meta+'</div><div class="s-sub">'+sub+"</div></summary>"
+    +'<div class="s-meta">'+meta+'</div><div class="s-sub">'+sub+"</div>"+grp+"</summary>"
     +'<div class="sbody">'+(open?schemeBody(r):"")+"</div></details>";
 }
 function schemeFilters(){
@@ -621,7 +624,7 @@ function renderFast(){
 function renderSrc(){
   var map=[
     ["Home dashboard","Counts computed from all loaded data files; engine shop visit list from Rectification History Database.xlsx (sheet List Engine); pre-read, context and links from Repair Handbook 101.docx"],
-    ["Rectification — Repair scheme search","ZAS_CMSORD_2026_Operation_Cleaned.xlsx (order and operation export), one card per order with its ordered repair steps. Loaded on demand, not shown until you open this view."],
+    ["Rectification — Repair scheme search","ZAS_CMSORD_2025_2026_Combined_Cleaned.xlsx (order and operation export, 2025 full year + 2026 Jan–Sep), one card per order with its ordered repair steps. Loaded on demand, not shown until you open this view."],
     ["Rectification — History records","Rectification History Database.xlsx — sheet Main. Each result shows its Excel row."],
     ["Material & Alternate Finder — Rivet / Fastener","Repair Note Dema.xlsx — sheet Plate Nut- Insert and Exhaust Sleeve. Diameter/grip interpretation rules: Repair Handbook 101.docx (fastener identification)."],
     ["Material & Alternate Finder — Consumable Material (SEI TVE-2)","list consumable material for SEI 01-2019 & 27-2020.xlsx — all worksheets."],
@@ -648,8 +651,10 @@ function renderSrc(){
    +'<li>The handbook GD&amp;T and fastener sections are images only, so they are shown as images and are not searchable text.</li>'
    +'<li><b>SEI TVE-2</b> and <b>EIN (TEA-5)</b> are kept as separate references throughout. A material appearing in both is never merged into one record — both are shown, and any difference between them is left visible rather than resolved.</li>'
    +'<li>Consumable material fields shown are exactly what each worksheet provides; sheets differ in columns (e.g. EIN generic sheets use Specification/Product Name/GMF SAP P/N/Remarks, while SEI sheets use CP Number/GMF Approved PN/Alternate PN 1&amp;2), so not every card has the same fields.</li>'
-   +'<li>In Repair scheme search, part no./part name/serial no. are taken from the order header where present, falling back to the operation-level material fields only when the header is blank — about 574 of 2,829 orders have no part number recorded and about 938 have no serial number; both are shown as “–”, never guessed.</li>'
-   +'<li>Engine in Repair scheme search is shown only where a CFM56/GE90/PW127/APU GTCP designation appears in the order’s own part, assembly or finding text (about 1,924 of 2,829 orders have none recorded and show no engine chip) — it is read from the order, never inferred from other orders.</li>'
+   +'<li>In Repair scheme search, part no./part name/serial no. are taken from the order header where present, falling back to the operation-level material fields only when the header is blank — about 1,142 of 7,020 orders have no part number recorded and about 2,907 have no serial number; all are shown as “–”, never guessed.</li>'
+   +'<li>Engine in Repair scheme search is shown only where a CFM56/GE90/PW127/APU GTCP designation appears in the order’s own part, assembly or finding text (about 5,341 of 7,020 orders have none recorded and show no engine chip) — it is read from the order, never inferred from other orders.</li>'
+   +'<li>Group in Repair scheme search comes from the order’s own group code and is only present in the 2026 export — none of the 4,191 orders from the 2025 export carry a group code, so the Grp chip and detail row are hidden on all of them, not blank by mistake.</li>'
+   +'<li>Year in Repair scheme search is the year of the source export the order came from (2025 or 2026, month not recorded) — it is a record of which export the order was read from, not a repair completion date.</li>'
    +'<li>Repair step text in Repair scheme search is shown exactly as recorded in the order, including where the source itself truncates it.</li>'
    +"</ul></div>"
    +'<div class="card"><h3>Principle</h3><p><b>Document evidence &gt; model assumption.</b> This site helps you find documented information. It does not replace Engineering judgement, and it does not generate technical data that the source documents do not contain.</p></div>';

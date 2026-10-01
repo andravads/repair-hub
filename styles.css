@@ -188,6 +188,7 @@ details.scheme .s-title{font-size:14.5px;font-weight:700;color:var(--navy);line-
 details.scheme .s-meta{margin:7px 0 5px}
 details.scheme .s-sub{font-size:12.5px;color:var(--muted);overflow-wrap:anywhere}
 details.scheme .s-sub .mono{color:var(--navy);font-weight:600}
+details.scheme .s-grp{margin-top:6px}
 details.scheme .sbody{padding:2px 16px 16px;border-top:1px solid var(--border);margin-top:2px}
 ol.steps{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:9px}
 ol.steps li{border:1px solid var(--border);border-radius:8px;padding:9px 11px;background:var(--surface-2)}
