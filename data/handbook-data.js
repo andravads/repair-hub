@@ -8,7 +8,9 @@ window.HANDBOOK = {
  "7b = http://7besm.gmf-aeroasia.co.id:8180/#/login",
  "Etechpub = https://etechpub.gmf-aeroasia.co.id/",
  "TV Capability = https://bit.ly/GMF_Epar_Catalogue",
- "Rectification DB History CFM56-7 = Link"
+ "Engine Information (ESN-specific docs: Workscope, Prelim Inspect, SVR, etc.) = https://gmfaeroasia365.sharepoint.com/sites/EngineMaintenance/Shared%20Documents/Forms/AllItems.aspx?id=%2Fsites%2FEngineMaintenance%2FShared%20Documents%2F03%2E%20PUBLIC%2FEngine%20Information&viewid=c7136df3%2D3681%2D4418%2D9031%2Da71d002d8a7b&p=true&ga=1",
+ "GMF Procedure (QP-WI Level 1-4) = https://gmfaeroasia365.sharepoint.com/Quality%20%20Procedure/Forms/AllItems.aspx?FolderCTID=0x012000D9D67803AC34C040B050E867A26111DD&id=%2FQuality%20%20Procedure%2F03%2E%20GMF%20Procedures&viewid=e057c60b%2D4140%2D4588%2D86fc%2D913267493668",
+ "Shop Engineering Information (SEI) — all SEI docs, not limited to material: DOE extension, expiration, etc. = https://gmfaeroasia365.sharepoint.com/sites/EngineMaintenance/Shared%20Documents/Forms/AllItems.aspx?id=%2Fsites%2FEngineMaintenance%2FShared%20Documents%2F03%2E%20PUBLIC%2FEngineering%2F22%2E%20Shop%20Engineering%20Information%20%28SEI%29&p=true&ga=1"
 ],
  tcodes: [
  {

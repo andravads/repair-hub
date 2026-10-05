@@ -3574,3 +3574,7 @@ window.ENGINE_LIST = [
   "st": "Done"
  }
 ];
+// Lightweight count-only summary of the Repair scheme search dataset (data/repair-schemes.js,
+// ~9 MB, fetched on demand). Kept here, always loaded, so the Home dashboard can show an
+// accurate total without pulling in the full lazy-loaded file.
+window.SCHEME_META = {"count":7020,"file":"ZAS_CMSORD_2025_2026_Combined_Cleaned.xlsx","years":[2025,2026]};

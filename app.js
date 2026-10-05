@@ -4,18 +4,20 @@
 (function () {
 "use strict";
 
-var BUILD = { version: "1.3.0", date: "2026-10-01", sources: [
+var BUILD = { version: "1.4.0", date: "2026-10-05", sources: [
   { file: "Repair Handbook 101.docx", note: "TVE-5 — T-Codes, finding definitions, GD&T, plate nut identification, fastener references, important links" },
   { file: "Rectification History Database.xlsx", note: "sheet Main (historical rectification records) and sheet List Engine (shop visit list) — History records view" },
   { file: "Repair Note Dema.xlsx", note: "sheets Module 22x, Module 23x, Plate Nut- Insert, Exhaust Sleeve, Spinner Cone, Flowpath Repair, CMM or retail" },
   { file: "list consumable material for SEI 01-2019 & 27-2020.xlsx", note: "Reference label SEI TVE-2 — all worksheets" },
   { file: "Consumable Material List - Update 2026.xlsx", note: "Reference label EIN (TEA-5) — all worksheets" },
-  { file: "ZAS_CMSORD_2025_2026_Combined_Cleaned.xlsx", note: "7,020 past repair orders (full year 2025 + Jan–Sep 2026), one record per order with its ordered repair steps — Repair scheme search view" }
+  { file: "ZAS_CMSORD_2025_2026_Combined_Cleaned.xlsx", note: "7,020 past repair orders (full year 2025 + Jan–Sep 2026), one record per order with its ordered repair steps — Repair scheme search view" },
+  { file: "Tool_Database_CFM56.xlsx", note: "sheet Database — 1,029 unique tools aggregated from 4,853 task rows (Tool No, Description, Rack, Type, Status, Module, Function) — Tool Database view" }
 ]};
 
 var RECT = window.RECTIFICATION || [], ENGINES = window.ENGINE_LIST || [],
     RN = window.REPAIR_NOTE || {}, HB = window.HANDBOOK || {}, IMGS = window.HANDBOOK_IMAGES || [],
-    EIN = window.CONSUMABLE_EIN || {file:"",rows:[]}, SEI = window.CONSUMABLE_SEI || {file:"",rows:[]};
+    EIN = window.CONSUMABLE_EIN || {file:"",rows:[]}, SEI = window.CONSUMABLE_SEI || {file:"",rows:[]},
+    TOOLDB = window.TOOL_DATABASE || {file:"",tools:[]}, SCHEME_META = window.SCHEME_META || {count:0};
 
 /* ---------- helpers ---------- */
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){
@@ -74,6 +76,7 @@ var TABS = {
   tcode:{ph:"e.g. IW31, task list, equipment",hint:(HB.tcodes||[]).length+" T-Codes from Repair Handbook 101."},
   find:{ph:"e.g. crack, korosi, fretting",hint:(HB.findings||[]).length+" defect definitions."},
   fast:{ph:"",hint:"Handbook illustrations — no search."},
+  tool:{ph:"e.g. 856A1312G02, wrench, puller, stand",hint:(TOOLDB.tools||[]).length+" tools from Tool_Database_CFM56.xlsx."},
   src:{ph:"",hint:""}
 };
 var cur="home";
@@ -119,14 +122,16 @@ function renderHome(q){
   var fCount=(RN.fasteners||[]).length,
       nCount=(RN.notes||[]).length,
       altCount=(RN.fasteners||[]).reduce(function(a,x){return a+((x.alt&&x.alt.length)||0);},0),
-      consCount=consAll().length;
+      consCount=consAll().length,
+      rectTotal=(SCHEME_META.count||0)+RECT.length;
   var h='<div class="grid three" style="margin-top:12px">'
-   +stat(RECT.length,"Rectification records")
+   +stat(rectTotal,"Rectification records")
    +stat(fCount,"Fastener P/N entries")
    +stat(consCount,"Consumable material records")
    +stat((HB.tcodes||[]).length,"T-Codes")
    +stat((HB.findings||[]).length,"Finding definitions")
    +stat(nCount+(RN.spinner||[]).length,"Repair note cards")
+   +stat((TOOLDB.tools||[]).length,"Tools in database")
    +'</div>';
 
   if(tokens(q).length){
@@ -140,6 +145,7 @@ function renderHome(q){
    +sc("tcode","T-Code Finder","SAP transaction codes by group and function")
    +sc("find","Finding Dictionary","Defect terminology and definitions")
    +sc("fast","Fastener Reference","Handbook identification illustrations")
+   +sc("tool","Tool Database","Tool no., description and rack location for CFM56 maintenance tooling")
    +'</div>';
 
   h+='<div class="card"><h3>Start here</h3>'
@@ -151,7 +157,7 @@ function renderHome(q){
   h+='<div class="card"><h3>Link penting</h3><ul class="lst" style="font-family:inherit">'
    +(HB.links||[]).map(function(l){
       var m=/(https?:\/\/\S+)/.exec(l);
-      return "<li>"+(m? esc(l.replace(m[1],""))+'<a href="'+esc(m[1])+'" target="_blank" rel="noopener">'+esc(m[1])+"</a>" : esc(l))+"</li>";
+      return "<li>"+(m? esc(l.replace(m[1],""))+' <a href="'+esc(m[1])+'" target="_blank" rel="noopener">Open ↗</a>' : esc(l))+"</li>";
     }).join("")
    +'</ul><div class="src">Source: Repair Handbook 101.docx — Link Penting</div></div>';
 
@@ -179,8 +185,9 @@ function globalSearch(q){
   var t=(HB.tcodes||[]).filter(function(x){return rank([F(x.code,1.4),F(x.fn,1),F(x.use,.9),F(x.group,.8)],q)>0;}).length;
   var d=(HB.findings||[]).filter(function(x){return rank([F(x.term,1.4),F(x.def,1),F(x.ex,.8)],q)>0;}).length;
   var n=(RN.notes||[]).filter(function(x){return rank([F(x.t,1.3),F(x.m,1),F(x.pn,1),F(JSON.stringify(x.rows),.7)],q)>0;}).length;
+  var tl=(TOOLDB.tools||[]).filter(function(x){return scoreTool(x,q)>0;}).length;
   [["rect","Rectification History",r],["alt","Rivet / Fastener",f],["alt","Consumable Material",c],["notes","Repair Note",n],
-   ["tcode","T-Code",t],["find","Finding Definition",d]].forEach(function(p){
+   ["tcode","T-Code",t],["find","Finding Definition",d],["tool","Tool Database",tl]].forEach(function(p){
     if(p[2]) hits.push('<button class="shortcut" data-go="'+p[0]+'"><b>'+p[2]+" match"+(p[2]>1?"es":"")
       +'</b><span class="tag t-n">'+esc(p[1])+"</span></button>");
   });
@@ -620,6 +627,67 @@ function renderFast(){
   return h;
 }
 
+/* ---------- TOOL DATABASE ---------- */
+/* Aggregated one card per unique Tool No. Rack/Type/Status are kept as every distinct value
+   documented across tasks (never collapsed to one), since the same tool can sit in more than
+   one rack or carry a different status depending on the engine/task. */
+var toolType="ALL", toolStatus="ALL", toolShown=25;
+var STATUS_TAG={RECOMMENDED:"t-doc",OPTIONAL:"t-dim",ALTERNATE:"t-dim",AMBIGUE:"t-calc",OBSOLETE:"t-n",CANCELLED:"t-n"};
+function scoreTool(x,q){
+  var f=[F(x.toolNo,1.6),F(x.desc,1.1)];
+  (x.racks||[]).forEach(function(v){f.push(F(v,.9));});
+  (x.types||[]).forEach(function(v){f.push(F(v,.6));});
+  (x.modules||[]).forEach(function(v){f.push(F(v,.5));});
+  (x.functions||[]).forEach(function(v){f.push(F(v,.5));});
+  return rank(f,q);
+}
+function toolCard(x,q){
+  var statuses=(x.statuses||[]).map(function(s){return '<span class="tag '+(STATUS_TAG[s]||"t-n")+'">'+esc(s)+"</span>";}).join("");
+  var racks=(x.racks||[]).length? (x.racks||[]).map(function(r){return '<span class="tag t-n">'+hl(r,q)+"</span>";}).join("")
+    : '<span class="tag t-n">Rack not recorded</span>';
+  var types=(x.types||[]).map(function(t){return '<span class="tag t-n">'+esc(t)+"</span>";}).join("");
+  var mods=(x.modules||[]), fns=(x.functions||[]);
+  var modTxt=mods.length? (mods.length<=6? mods.join(", ") : mods.slice(0,6).join(", ")+" +"+(mods.length-6)+" more") : "–";
+  var fnTxt=fns.length? fns.join(", ") : "–";
+  return '<div class="card"><div class="pn">'+hl(x.toolNo,q)+"</div>"
+   +'<div style="margin:6px 0">'+statuses+"</div>"
+   +'<h3 style="font-size:14.5px">'+hl(x.desc||"(no description recorded)",q)+"</h3>"
+   +'<h2>Rack</h2><div>'+racks+"</div>"
+   +(types.length? '<h2>Engine type</h2><div>'+types+"</div>" : "")
+   +'<dl class="kv"><dt>Module(s)</dt><dd>'+esc(modTxt)+"</dd><dt>Function(s)</dt><dd>"+esc(fnTxt)
+   +"</dd><dt>Used in</dt><dd>"+x.taskCount+" task"+(x.taskCount===1?"":"s")+"</dd></dl>"
+   +'<div class="src">Source: '+esc(TOOLDB.file)+" — sheet "+esc(TOOLDB.sheet||"Database")+"</div></div>";
+}
+function renderTool(q){
+  var all=TOOLDB.tools||[];
+  var types={}, statuses={};
+  all.forEach(function(x){
+    (x.types||[]).forEach(function(t){types[t]=(types[t]||0)+1;});
+    (x.statuses||[]).forEach(function(s){statuses[s]=(statuses[s]||0)+1;});
+  });
+  var tChips='<div class="chip-label">Engine type</div><div class="chips">'
+   +'<button class="chip" data-ttype="ALL" aria-pressed="'+(toolType==="ALL")+'">All ('+all.length+")</button>"
+   +Object.keys(types).sort().map(function(k){return '<button class="chip" data-ttype="'+esc(k)+'" aria-pressed="'+(toolType===k)+'">'+esc(k)+" ("+types[k]+")</button>";}).join("")
+   +"</div>";
+  var sChips='<div class="chip-label">Status</div><div class="chips">'
+   +'<button class="chip" data-tstatus="ALL" aria-pressed="'+(toolStatus==="ALL")+'">All</button>'
+   +Object.keys(statuses).sort().map(function(k){return '<button class="chip" data-tstatus="'+esc(k)+'" aria-pressed="'+(toolStatus===k)+'">'+esc(k)+" ("+statuses[k]+")</button>";}).join("")
+   +"</div>";
+
+  var list=all.filter(function(x){
+      return (toolType==="ALL"||(x.types||[]).indexOf(toolType)>-1)
+          && (toolStatus==="ALL"||(x.statuses||[]).indexOf(toolStatus)>-1);
+    }).map(function(x){return {x:x,s:scoreTool(x,q)};}).filter(function(o){return o.s>0;})
+    .sort(function(a,b){return b.s-a.s||a.x.toolNo.localeCompare(b.x.toolNo);}).map(function(o){return o.x;});
+
+  return '<div class="note">Reference only. Status (e.g. OBSOLETE, CANCELLED) reflects what the source records for that tool — always confirm current tool status and location before use.</div>'
+   +tChips+sChips
+   +'<div class="count">'+list.length+" of "+all.length+" tools"+(tokens(q).length?" matching your search":"")+"</div>"
+   +(list.length? list.slice(0,toolShown).map(function(x){return toolCard(x,q);}).join("")
+     +(list.length>toolShown? '<button class="more" id="moreTool">Show more ('+(list.length-toolShown)+" remaining)</button>" : "")
+     : '<div class="card empty"><b>No tool matches.</b><p>Try the tool number, a short description word, or clear a filter.</p></div>');
+}
+
 /* ---------- SOURCES ---------- */
 function renderSrc(){
   var map=[
@@ -629,6 +697,7 @@ function renderSrc(){
     ["Material & Alternate Finder — Rivet / Fastener","Repair Note Dema.xlsx — sheet Plate Nut- Insert and Exhaust Sleeve. Diameter/grip interpretation rules: Repair Handbook 101.docx (fastener identification)."],
     ["Material & Alternate Finder — Consumable Material (SEI TVE-2)","list consumable material for SEI 01-2019 & 27-2020.xlsx — all worksheets."],
     ["Material & Alternate Finder — Consumable Material (EIN (TEA-5))","Consumable Material List - Update 2026.xlsx — all worksheets."],
+    ["Tool Database","Tool_Database_CFM56.xlsx — sheet Database. One card per unique Tool No, aggregated from every task row that uses it."],
     ["Repair Notes","Repair Note Dema.xlsx — sheets Module 22x, Module 23x, Exhaust Sleeve, Spinner Cone, Flowpath Repair, CMM or retail."],
     ["T-Code Finder","Repair Handbook 101.docx — T-Code table."],
     ["Finding Dictionary","Repair Handbook 101.docx — finding/defect table."],
@@ -656,6 +725,7 @@ function renderSrc(){
    +'<li>Group in Repair scheme search comes from the order’s own group code and is only present in the 2026 export — none of the 4,191 orders from the 2025 export carry a group code, so the Grp chip and detail row are hidden on all of them, not blank by mistake.</li>'
    +'<li>Year in Repair scheme search is the year of the source export the order came from (2025 or 2026, month not recorded) — it is a record of which export the order was read from, not a repair completion date.</li>'
    +'<li>Repair step text in Repair scheme search is shown exactly as recorded in the order, including where the source itself truncates it.</li>'
+   +'<li>Tool Database aggregates 4,853 task rows into 1,029 unique Tool No cards. Where a tool’s description varies slightly across rows (casing, a trailing parenthetical) the most frequent version is shown; rack, engine type and status are never collapsed — every distinct value the source records for that tool is kept, since the same tool can sit in more than one rack or carry a different status per engine/task. 390 of 1,029 tools have no rack recorded at all.</li>'
    +"</ul></div>"
    +'<div class="card"><h3>Principle</h3><p><b>Document evidence &gt; model assumption.</b> This site helps you find documented information. It does not replace Engineering judgement, and it does not generate technical data that the source documents do not contain.</p></div>';
 }
@@ -670,9 +740,10 @@ function render(){
   else if(cur==="tcode") $("tcode").innerHTML=renderTcode(q);
   else if(cur==="find") $("find").innerHTML=renderFind(q);
   else if(cur==="fast") $("fast").innerHTML=renderFast();
+  else if(cur==="tool") $("tool").innerHTML=renderTool(q);
   else if(cur==="src") $("src").innerHTML=renderSrc();
 }
-$("q").addEventListener("input",function(){ rectShown=25; consShown=25; schemeShown=25; syncClearBtn(); render(); });
+$("q").addEventListener("input",function(){ rectShown=25; consShown=25; schemeShown=25; toolShown=25; syncClearBtn(); render(); });
 document.addEventListener("click",function(e){
   var go=e.target.closest("[data-go]"); if(go){ setTab(go.dataset.go); return; }
   var en=e.target.closest("[data-eng]"); if(en){ rectEngine=en.dataset.eng; rectShown=25; render(); return; }
@@ -683,9 +754,12 @@ document.addEventListener("click",function(e){
   var st=e.target.closest("[data-stype]"); if(st){ schemeType=st.dataset.stype; schemeShown=25; render(); return; }
   var se=e.target.closest("[data-sengine]"); if(se){ schemeEng=se.dataset.sengine; schemeShown=25; render(); return; }
   if(e.target.closest("[data-schemeretry]")){ SCH.state="idle"; render(); return; }
+  var tt=e.target.closest("[data-ttype]"); if(tt){ toolType=tt.dataset.ttype; toolShown=25; render(); return; }
+  var ts=e.target.closest("[data-tstatus]"); if(ts){ toolStatus=ts.dataset.tstatus; toolShown=25; render(); return; }
   if(e.target.id==="moreRect"){ rectShown+=25; render(); }
   if(e.target.id==="moreCons"){ consShown+=25; render(); }
   if(e.target.id==="moreScheme"){ schemeShown+=25; render(); }
+  if(e.target.id==="moreTool"){ toolShown+=25; render(); }
 });
 /* Lazily render the expanded body of a repair-scheme card the first time it is opened,
    without a full re-render (keeps scroll position and other open cards untouched). */

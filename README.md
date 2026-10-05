@@ -32,8 +32,9 @@ repair-engineering-starter-hub/
 │   ├── handbook-images.js        image manifest for the handbook illustrations
 │   ├── consumable-sei.js         SEI TVE-2 — list consumable material for SEI 01-2019 & 27-2020.xlsx
 │   ├── consumable-ein.js         EIN (TEA-5) — Consumable Material List - Update 2026.xlsx
-│   └── repair-schemes.js         ZAS_CMSORD_2025_2026_Combined_Cleaned.xlsx — fetched on demand, not
-│                                 loaded by index.html directly (see app.js: schemeLoad)
+│   ├── repair-schemes.js         ZAS_CMSORD_2025_2026_Combined_Cleaned.xlsx — fetched on demand, not
+│   │                             loaded by index.html directly (see app.js: schemeLoad)
+│   └── tool-database.js          Tool_Database_CFM56.xlsx — 1,029 tools, loaded normally (~237 KB)
 ├── assets/handbook-images/       19 illustrations extracted from the handbook
 ├── README.md
 └── DEPLOYMENT_GUIDE.md
@@ -72,6 +73,11 @@ requires regenerating the matching file in `data/`.
 - **T-Code Finder** — 57 T-Codes by group, function and kegunaan.
 - **Finding Dictionary** — 41 defect definitions, kept distinct from one another.
 - **Fastener Reference** — GD&T, plate nut identification and 17 fastener illustrations.
+- **Tool Database** — 1,029 unique maintenance tools aggregated from `Tool_Database_CFM56.xlsx`
+  (4,853 task rows). Search by tool number, description, rack or keyword, with Engine type
+  and Status filters. Rack, engine type and status are never collapsed to one value — every
+  distinct one the source records for that tool is shown, since the same tool can sit in more
+  than one rack or carry a different status per engine/task.
 - **Sources** — feature-to-document map, loaded document versions, known source limitations.
 
 All search is live: results update on every keystroke, with no Search button. Search is
@@ -102,6 +108,14 @@ are always labelled separately and a shared name or specification between them i
 treated as a documented equivalence — only an alternate/cross reference actually stated
 in a workbook is shown as such. If the same search matches both, the site shows a note
 that they are kept as separate references rather than combining them.
+
+## Tool Database — what's never merged
+
+390 of 1,029 tools have no rack recorded anywhere in the source and show "Rack not
+recorded" rather than a guess. 17 tools carry more than one documented status (e.g.
+RECOMMENDED for one engine type, OBSOLETE for another) — all of them are shown, never
+reduced to a single "current" status. Where a description has minor text variants across
+rows (casing, a trailing parenthetical), the most frequent version is shown.
 
 ## Rivet diameter and grip
 
