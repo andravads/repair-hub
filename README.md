@@ -34,7 +34,9 @@ repair-engineering-starter-hub/
 │   ├── consumable-ein.js         EIN (TEA-5) — Consumable Material List - Update 2026.xlsx
 │   ├── repair-schemes.js         ZAS_CMSORD_2025_2026_Combined_Cleaned.xlsx — fetched on demand, not
 │   │                             loaded by index.html directly (see app.js: schemeLoad)
-│   └── tool-database.js          Tool_Database_CFM56.xlsx — 1,029 tools, loaded normally (~237 KB)
+│   ├── tool-database.js          Tool_Database_CFM56.xlsx — 1,029 tools + 324 task codes (~310 KB)
+│   ├── online-reference.js       internet-researched rivet / plate nut naming rules + sources (hints only)
+│   └── repair-note-images.js     manifest for assets/repair-note-images (6 user-supplied photos / figures)
 ├── assets/handbook-images/       19 illustrations extracted from the handbook
 ├── README.md
 └── DEPLOYMENT_GUIDE.md
@@ -74,7 +76,7 @@ requires regenerating the matching file in `data/`.
 - **Finding Dictionary** — 41 defect definitions, kept distinct from one another.
 - **Fastener Reference** — GD&T, plate nut identification and 17 fastener illustrations.
 - **Tool Database** — 1,029 unique maintenance tools aggregated from `Tool_Database_CFM56.xlsx`
-  (4,853 task rows). Search by tool number, description, rack or keyword, with Engine type
+  (4,853 task rows). Search by tool number, description, rack, task code (e.g. `72-00-02-020-001`) or keyword, with Engine type
   and Status filters. Rack, engine type and status are never collapsed to one value — every
   distinct one the source records for that tool is shown, since the same tool can sit in more
   than one rack or carry a different status per engine/task.
@@ -108,6 +110,18 @@ are always labelled separately and a shared name or specification between them i
 treated as a documented equivalence — only an alternate/cross reference actually stated
 in a workbook is shown as such. If the same search matches both, the site shows a note
 that they are kept as separate references rather than combining them.
+
+## Rivet / plate nut finder and P/N Analyzer
+
+- **Search a rivet P/N** → card shows *documented* (workbook) vs *hint* (from the P/N name) for type
+  (solid / blind), head (universal / flush), material, diameter and length / grip; other rivets the
+  workbook lists for the same plate nut (grouped solid / blind-universal / blind-flush); the matching
+  plate nut(s) with their specification; and other lengths of the same family.
+- **Search a plate nut** → specification, documented alternate plate nuts and the rivets listed for it.
+- **P/N Analyzer (online)** → decodes the name using rules researched online (`data/online-reference.js`,
+  each with a source link), lists neighbouring length codes (*in workbook / seen listed online / pattern
+  only*), other types with the same job, cross-references found online, and one-tap search links.
+  The site is static and cannot browse the internet live; hints are labelled and never approvals.
 
 ## Tool Database — what's never merged
 
