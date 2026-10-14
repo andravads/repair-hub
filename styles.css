@@ -277,3 +277,5 @@ table.cmp{min-width:0}
 .selrow select{font:inherit;font-size:14px;font-weight:600;letter-spacing:0;text-transform:none;color:var(--text);padding:10px 12px;min-height:44px;
   border:1.5px solid var(--border);border-radius:9px;background:var(--surface)}
 .selrow select:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(0,98,152,.14)}
+
+.lnk{display:inline-block;font-size:10px;font-weight:700;color:var(--warn);border:1px dashed var(--warn);border-radius:999px;padding:0 6px;margin-left:4px;vertical-align:1px}

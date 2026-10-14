@@ -32,7 +32,7 @@ repair-engineering-starter-hub/
 │   ├── handbook-images.js        image manifest for the handbook illustrations
 │   ├── consumable-sei.js         SEI TVE-2 — list consumable material for SEI 01-2019 & 27-2020.xlsx
 │   ├── consumable-ein.js         EIN (TEA-5) — Consumable Material List - Update 2026.xlsx
-│   ├── repair-schemes.js         ZAS_CMSORD_2025_2026_Combined_Cleaned.xlsx — fetched on demand, not
+│   ├── repair-schemes.js         combined 2025+2026 orders + raw-export fields — fetched on demand, not
 │   │                             loaded by index.html directly (see app.js: schemeLoad)
 │   ├── tool-database.js          Tool_Database_CFM56.xlsx — 1,029 tools + 324 task codes (~310 KB)
 │   ├── online-reference.js       internet-researched rivet / plate nut naming rules + sources (hints only)
@@ -55,7 +55,7 @@ requires regenerating the matching file in `data/`.
     group, title or keyword, with Type (MDR / Non-routine) and Engine filters. Compact
     accordion cards expand to show the full order detail (including Group and the source
     Year) and its ordered repair steps. Reference only — never an approved procedure.
-    Loaded lazily the first time this view is opened (`data/repair-schemes.js`, ~9.2 MB
+    Each card also shows the created date, ESN (from the order's revision text), group and station; Year / Sort dropdowns use the created date. Loaded lazily the first time this view is opened (`data/repair-schemes.js`, ~9.2 MB
     uncompressed — Vercel serves static assets gzip/brotli-compressed automatically, so
     the actual network transfer is well under that — not bundled into the app's main
     script), and only that one file needs replacing on a future data update.

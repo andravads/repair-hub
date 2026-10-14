@@ -4,13 +4,14 @@
 (function () {
 "use strict";
 
-var BUILD = { version: "1.5.0", date: "2026-10-12", sources: [
+var BUILD = { version: "1.6.0", date: "2026-10-14", sources: [
   { file: "Repair Handbook 101.docx", note: "TVE-5 — T-Codes, finding definitions, GD&T, plate nut identification, fastener references, important links" },
   { file: "Rectification History Database.xlsx", note: "sheet Main (historical rectification records) and sheet List Engine (shop visit list) — History records view" },
   { file: "Repair Note Dema.xlsx", note: "sheets Module 22x, Module 23x, Plate Nut- Insert, Exhaust Sleeve, Spinner Cone, Flowpath Repair, CMM or retail" },
   { file: "list consumable material for SEI 01-2019 & 27-2020.xlsx", note: "Reference label SEI TVE-2 — all worksheets" },
   { file: "Consumable Material List - Update 2026.xlsx", note: "Reference label EIN (TEA-5) — all worksheets" },
-  { file: "ZAS_CMSORD_2025_2026_Combined_Cleaned.xlsx", note: "7,020 past repair orders (full year 2025 + Jan–Sep 2026), one record per order with its ordered repair steps — Repair scheme search view" },
+  { file: "ZAS_CMSORD_2025_2026_Combined_Cleaned.xlsx", note: "Main source — 7,020 past repair orders (full year 2025 + Jan–Sep 2026), one record per order with its ordered repair steps — Repair scheme search view" },
+  { file: "ZAS_CMORD_2025.xlsx and ZAS_CMSORD_2026 (up to Sep 2026).xlsx", note: "Raw exports, matched by order number to add created date, group, station / work center and shop-visit text (ESN)" },
   { file: "Tool_Database_CFM56.xlsx", note: "sheet Database — 1,029 unique tools aggregated from 4,853 task rows (Tool No, Description, Rack, Type, Status, Module, Function, Task) — Tool Database view" },
   { file: "Online reference (data/online-reference.js)", note: "Internet-researched rivet / plate nut naming rules and cross-references, retrieved 2026-10-12, each with its source link — hints only, used by the Rivet / Fastener cards and the P/N Analyzer" },
   { file: "Repair note photos / figures (assets/repair-note-images)", note: "6 images supplied by the user for the Repair Notes cards — not part of Repair Note Dema.xlsx" }
@@ -61,7 +62,7 @@ function F(v,w){return {n:norm(v),w:w||1};}
 /* ---------- tabs ---------- */
 var TABS = {
   home:{ph:"Search everything — P/N, finding, T-Code…",hint:"Type to search across all sections."},
-  rect:{ph:"Search part number, part name or keyword…",hint:"Repair scheme search or History records — pick a view below."},
+  rect:{ph:"Search part no., part name, ESN, group or keyword…",hint:"Repair scheme search or History records — pick a view below."},
   alt:{ph:"e.g. CR2662-3-4, MS21076-3, RTV102, flush blind rivet",hint:"Rivet / Fastener, Consumable Material or P/N Analyzer (online) — pick a view below."},
   notes:{ph:"e.g. abradable, exhaust, spinner, Metco",hint:"Searches every Repair Note worksheet."},
   tcode:{ph:"e.g. IW31, task list, equipment",hint:(HB.tcodes||[]).length+" T-Codes from Repair Handbook 101."},
@@ -200,11 +201,12 @@ function trunc(s,n){s=String(s||"");return s.length>n?s.slice(0,n-1).replace(/\s
 function schemeIndex(d){
   SCH.rec=d.records;
   SCH.idx=SCH.rec.map(function(r){
+    var dk=r.date? parseInt(r.date.replace(/-/g,""),10) : (parseInt(r.year,10)||0)*10000;   /* created date; year start if undated */
     return {pn:(r.partNumber||"").toLowerCase(), pk:alnum(r.partNumber), nm:(r.partName||"").toLowerCase(),
             tt:(r.title||"").toLowerCase(),
-            ot:((r.engine||"")+" "+r.orderNo+" "+(r.serialNo||"")+" "+(r.group||"")).toLowerCase(),
-            ok:alnum(r.orderNo), sk:alnum(r.serialNo), gk:alnum(r.group),
-            rk:(parseInt(r.year,10)||0)*1e10+(parseInt(r.orderNo,10)||0)};   /* recency key: year, then order no. */
+            ot:((r.engine||"")+" "+r.orderNo+" "+(r.serialNo||"")+" "+(r.group||"")+" "+(r.esn||"")+" "+(r.station||"")+" "+(r.wc||"")+" "+(r.rev||"")+" "+(r.date||"")).toLowerCase(),
+            ok:alnum(r.orderNo), sk:alnum(r.serialNo), gk:alnum(r.group), ek:alnum(r.esn),
+            dk:dk, on:parseInt(r.orderNo,10)||0};   /* recency: created date, then order no. */
   });
   SCH.types={}; SCH.engines={}; SCH.years={};
   SCH.rec.forEach(function(r){
@@ -242,8 +244,9 @@ function schemeFail(sc){
 function schemeSearch(q){
   var ts=q.toLowerCase().split(/\s+/).filter(Boolean), out=[], i, x, r;
   function pass(r){return (schemeType==="ALL"||r.type===schemeType)&&(schemeEng==="ALL"||r.engine===schemeEng)&&(schemeYear==="ALL"||r.year===schemeYear);}
-  /* newest first: year (2026 above 2025), then order no.; "Best match" keeps relevance and uses recency to break ties */
-  function cmp(a,b){var ra=SCH.idx[a.i].rk, rb=SCH.idx[b.i].rk; return schemeSort==="new"? (rb-ra) : (b.s-a.s||rb-ra);}
+  /* newest first by created date (then order no.); "Best match" keeps relevance and uses recency to break ties */
+  function rec2(a,b){var x=SCH.idx[a.i], y=SCH.idx[b.i]; return (y.dk-x.dk)||(y.on-x.on);}
+  function cmp(a,b){return schemeSort==="new"? rec2(a,b) : (b.s-a.s||rec2(a,b));}
   if(!ts.length){
     for(i=0;i<SCH.rec.length;i++) if(pass(SCH.rec[i])) out.push({i:i,s:0});
     out.sort(cmp);
@@ -254,8 +257,8 @@ function schemeSearch(q){
     for(i=0;i<SCH.rec.length;i++){
       r=SCH.rec[i]; if(!pass(r)) continue; x=SCH.idx[i];
       var s=0;
-      if(x.pk===qk) s=200; else if(x.pk.indexOf(qk)===0) s=150; else if(x.pk.indexOf(qk)>-1) s=100;
-      else if(x.ok.indexOf(qk)>-1) s=80; else if(x.gk && x.gk.indexOf(qk)>-1) s=75; else if(x.sk.indexOf(qk)>-1) s=70;
+      if(x.pk===qk) s=200; else if(x.pk.indexOf(qk)===0) s=150; else if(x.ek && x.ek===qk) s=130; else if(x.pk.indexOf(qk)>-1) s=100;
+      else if(x.ok.indexOf(qk)>-1) s=80; else if(x.ek && x.ek.indexOf(qk)>-1) s=78; else if(x.gk && x.gk.indexOf(qk)>-1) s=75; else if(x.sk.indexOf(qk)>-1) s=70;
       if(s) out.push({i:i,s:s});
     }
     if(out.length){ out.sort(cmp); return {list:out,pn:qk}; }
@@ -291,11 +294,13 @@ function hlPN(t,key){
 }
 
 function schemeBody(r){
-  var h='<dl class="kv"><dt>Order</dt><dd>'+dash(r.orderNo)+"</dd><dt>Year</dt><dd>"+dash(r.year)
+  var h='<dl class="kv"><dt>Order</dt><dd>'+dash(r.orderNo)+"</dd><dt>Created</dt><dd>"+dash(r.date||r.year)
     +"</dd><dt>Part no.</dt><dd>"+dash(r.partNumber)
-    +"</dd><dt>Part name</dt><dd>"+dash(r.partName)+"</dd><dt>Group</dt><dd>"+dash(r.group)
-    +"</dd><dt>Engine</dt><dd>"+dash(r.engine)
-    +"</dd><dt>Serial no.</dt><dd>"+dash(r.serialNo)+"</dd></dl>"
+    +"</dd><dt>Part name</dt><dd>"+dash(r.partName)+(r.nl?' <span class="lnk">linked from other orders with the same part no.</span>':"")
+    +"</dd><dt>Group</dt><dd>"+dash(r.group)+"</dd><dt>Engine</dt><dd>"+dash(r.engine)
+    +"</dd><dt>ESN</dt><dd>"+dash(r.esn)+"</dd><dt>Serial no.</dt><dd>"+dash(r.serialNo)
+    +"</dd><dt>Station</dt><dd>"+dash(r.station)+"</dd><dt>Work center</dt><dd>"+dash(r.wc)
+    +"</dd><dt>Shop visit</dt><dd>"+dash(r.rev)+"</dd></dl>"
     +'<h2>Finding</h2><p style="font-size:13.5px;overflow-wrap:anywhere">'+dash(r.title)+"</p>"
     +"<h2>Repair steps</h2>";
   if(!r.steps.length) return h+'<p class="muted">No repair steps recorded.</p>';
@@ -312,13 +317,17 @@ function schemeCard(i,q,pq){
   var n=r.steps.length;
   var meta='<span class="tag '+(TYPE_TAG[r.type]||"t-n")+'">'+esc(TYPE_LABEL[r.type]||r.type)+"</span>"
     +'<span class="tag t-n">Order '+esc(r.orderNo)+"</span>"
-    +(r.year?'<span class="tag t-n">'+esc(r.year)+"</span>":"")
+    +((r.date||r.year)?'<span class="tag t-n">'+esc(r.date||r.year)+"</span>":"")
     +(r.engine?'<span class="tag t-n">'+esc(r.engine)+"</span>":"")
+    +(r.esn?'<span class="tag t-n">ESN '+hh(r.esn)+"</span>":"")
     +(r.group?'<span class="tag t-n">Grp '+hh(r.group)+"</span>":"")
+    +(r.station?'<span class="tag t-n">'+hl(r.station,q)+"</span>":"")
     +'<span class="tag t-n">'+n+(n===1?" step":" steps")+"</span>";
-  var sub='<span class="mono">'+(r.partNumber?hh(r.partNumber):"–")+"</span> · "+(r.partName?hh(r.partName):"–");
+  var nm=r.partName? hh(r.partName)+(r.nl?' <span class="lnk" title="Part name linked from other orders with the same part number">linked</span>':"") : "–";
+  var sub='<span class="mono">'+(r.partNumber?hh(r.partNumber):"–")+"</span> · "+nm;
+  var heading=r.title?(pq?esc(trunc(r.title,120)):hl(trunc(r.title,120),q)):(r.partName?esc(trunc(r.partName,120)):"(no title recorded)");
   return '<details class="card scheme" data-i="'+i+'"'+(open?" open":"")+'><summary aria-expanded="'+open+'">'
-    +'<div class="s-title">'+(r.title?(pq?esc(trunc(r.title,120)):hl(trunc(r.title,120),q)):"(no title recorded)")+"</div>"
+    +'<div class="s-title">'+heading+"</div>"
     +'<div class="s-meta">'+meta+'</div><div class="s-sub">'+sub+"</div></summary>"
     +'<div class="sbody">'+(open?schemeBody(r):"")+"</div></details>";
 }
@@ -358,7 +367,7 @@ function renderScheme(q){
     if(byDate && r.year!==lastY){ lastY=r.year; head='<h2 class="yearhead">'+esc(r.year||"Year not stated")+"</h2>"; }
     return head+schemeCard(o.i,q,res.pn);
   }
-  var label=recent? "Most recent records, newest first (2026 above 2025; within a year by order number)"
+  var label=recent? "Most recent records first, by created date"
           : n.toLocaleString("en-US")+" result"+(n===1?"":"s")+" · "+(schemeSort==="new"?"newest first":"best match first, newest first when equal")+" · tap a title to expand";
   return note+filters
     +'<div class="count" aria-live="polite">'+(recent? "" : "")+label+"</div>"
@@ -1064,7 +1073,7 @@ function renderTool(q){
 function renderSrc(){
   var map=[
     ["Home dashboard","Counts computed from all loaded data files; engine shop visit list from Rectification History Database.xlsx (sheet List Engine); pre-read, context and links from Repair Handbook 101.docx"],
-    ["Rectification — Repair scheme search","ZAS_CMSORD_2025_2026_Combined_Cleaned.xlsx (order and operation export, 2025 full year + 2026 Jan–Sep), one card per order with its ordered repair steps. Loaded on demand, not shown until you open this view."],
+    ["Rectification — Repair scheme search","ZAS_CMSORD_2025_2026_Combined_Cleaned.xlsx (order and operation export, 2025 full year + 2026 Jan–Sep), one card per order with its ordered repair steps. Loaded on demand, not shown until you open this view. Created date, group, station, work center and ESN are added from the raw 2025 and 2026 exports by order number."],
     ["Rectification — History records","Rectification History Database.xlsx — sheet Main. Each result shows its Excel row."],
     ["Material & Alternate Finder — Rivet / Fastener","Repair Note Dema.xlsx — sheet Plate Nut- Insert and Exhaust Sleeve. Diameter/grip interpretation rules: Repair Handbook 101.docx (fastener identification)."],
     ["Material & Alternate Finder — Consumable Material (SEI TVE-2)","list consumable material for SEI 01-2019 & 27-2020.xlsx — all worksheets."],
@@ -1096,10 +1105,13 @@ function renderSrc(){
    +'<li>Consumable material fields shown are exactly what each worksheet provides; sheets differ in columns (e.g. EIN generic sheets use Specification/Product Name/GMF SAP P/N/Remarks, while SEI sheets use CP Number/GMF Approved PN/Alternate PN 1&amp;2), so not every card has the same fields.</li>'
    +'<li>In Repair scheme search, part no./part name/serial no. are taken from the order header where present, falling back to the operation-level material fields only when the header is blank — about 1,142 of 7,020 orders have no part number recorded and about 2,907 have no serial number; all are shown as “–”, never guessed.</li>'
    +'<li>Engine in Repair scheme search is shown only where a CFM56/GE90/PW127/APU GTCP designation appears in the order’s own part, assembly or finding text (about 5,341 of 7,020 orders have none recorded and show no engine chip) — it is read from the order, never inferred from other orders.</li>'
-   +'<li>Group in Repair scheme search comes from the order’s own group code and is only present in the 2026 export — none of the 4,191 orders from the 2025 export carry a group code, so the Grp chip and detail row are hidden on all of them, not blank by mistake.</li>'
-   +'<li>Year in Repair scheme search is the year of the source export the order came from (2025 or 2026, month not recorded) — it is a record of which export the order was read from, not a repair completion date.</li>'
+   +'<li>Created date comes from the raw exports (order creation date) and is what “Newest first”, the Year filter and the date chip use; 3 orders have none and fall back to the export year. 167 orders found in the 2025 export were created in 2026, so the Year filter (by created date: 2025 = 4,024, 2026 = 2,996) differs from the export counts (4,191 / 2,829).</li>'
+   +'<li>Group is the order’s group in the 2026 export or the task-list group in the raw exports (they agree on every 2026 order where both exist); 3,962 of 7,020 orders have one (2025: 2,683 of 4,191, 2026: 1,279 of 2,829) and it is hidden, not guessed, where blank (for example order 806230239).</li>'
+   +'<li>Station is the order’s plant code and Work center its work center, exactly as recorded (e.g. GAEM). The meaning of each code is not stated in the files, so none is shown — the requested column “LTCA1” does not exist in the exports, please confirm these are the right fields.</li>'
+   +'<li>ESN is the engine number found in the order’s revision text (e.g. “ENG. PERFORMANCE 645406 QG” → 645406; APU serials appear as P-5431); 3,935 orders have one. Serial no. remains the serial of the part itself. The full revision text is shown as “Shop visit”.</li>'
+   +'<li>Part name: where an order has a part number but no name, the name is linked from other orders with the same part number (only part numbers with exactly one name are used; 356 orders) and is marked “linked”. 1,142 orders have no part number at all, so nothing can be linked.</li>'
+   +'<li>K-text (the 40-character order short text) is already the start of every card title, so the title is searchable as K-text; where an order has no title the part name is shown instead.</li>'
    +'<li>Repair step text in Repair scheme search is shown exactly as recorded in the order, including where the source itself truncates it.</li>'
-   +'<li>Rectification “Newest first” orders by year (2026 above 2025) and then by order number within the year — the source has no exact dates, so order number is only a proxy for recency. Group (Grp) exists only on 1,279 orders from 2026 (for example order 806230239 has none in the source); it is hidden, not guessed, where blank.</li>'
    +'<li>P/N Analyzer: P/Ns marked “seen listed online” were found on distributor pages during research; “pattern only” means the P/N follows a naming rule but was not seen. The site cannot search the internet live — the “search online” buttons open a fresh search in a new tab.</li>'
    +'<li>Source check: the workbook lists MS20426AD3-6-5 with a length of 0.375 in; by the naming rule (−6-5 = 6.5/16 in) it would be 0.406 in, while MS20426AD3-6 is 3/8 in. It is shown as documented with a “differs” flag — verify the source.</li>'
    +'<li>Tool Database aggregates 4,853 task rows into 1,029 unique Tool No cards. Where a tool’s description varies slightly across rows (casing, a trailing parenthetical) the most frequent version is shown; rack, engine type and status are never collapsed — every distinct value the source records for that tool is kept, since the same tool can sit in more than one rack or carry a different status per engine/task. 390 of 1,029 tools have no rack recorded at all.</li>'
