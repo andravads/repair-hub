@@ -35,6 +35,8 @@ repair-engineering-starter-hub/
 │   ├── repair-schemes.js         combined 2025+2026 orders + raw-export fields — fetched on demand, not
 │   │                             loaded by index.html directly (see app.js: schemeLoad)
 │   ├── tool-database.js          Tool_Database_CFM56.xlsx — 1,029 tools + 324 task codes (~310 KB)
+│   ├── esn-map.js                ESN / APU serial → engine family (155 entries; edit this small file to update)
+│   ├── rivet-reference.js        Cherry catalogs (supplied PDFs) + MS/NAS/BACR/AN solid rivet families — tagged catalog / hint
 │   ├── online-reference.js       internet-researched rivet / plate nut naming rules + sources (hints only)
 │   └── repair-note-images.js     manifest for assets/repair-note-images (6 user-supplied photos / figures)
 ├── assets/handbook-images/       19 illustrations extracted from the handbook
@@ -122,6 +124,20 @@ that they are kept as separate references rather than combining them.
   each with a source link), lists neighbouring length codes (*in workbook / seen listed online / pattern
   only*), other types with the same job, cross-references found online, and one-tap search links.
   The site is static and cannot browse the internet live; hints are labelled and never approvals.
+
+## Cherry rivets, NAS pages and solid ↔ blind (data/rivet-reference.js)
+
+Learned from the five Cherry catalogs supplied (CherryLOCK quick card, nut plate rivets CCR244/264/274,
+3/32 SPR, CherryLOCK ‘A’ NAS1398/1399, CherryMAX) and public pages (Rapid Rivet, EverySpec, SAE, distributors).
+- A **P/N reader** splits a name into boxes (series, head, material, diameter, grip) in plain words.
+- **Same size & configuration, different material**: e.g. CR2562-2-2 → CR2162 / CR2262 / CR2662-2-2 (same head, size, grip).
+- **Same material, different head**, **nominal ↔ oversize** (CherryMAX), **NAS page / Cherry / Boeing equivalents**
+  (e.g. CR2663-4-4 ↔ NAS1398C4-4, CR1122-3-04 ↔ BACR15GR3-4).
+- **Solid ↔ blind with the same head shape** is listed but always flagged: not substitutes without approval.
+- Catalog facts: drill / hole sizes, grip gage rule (read up), strength, tooling, SPR removal.
+- Solid families: MS20426 / 27 / 70 / 613 / 615, MS9318 / 9403 / 9460, MS14218, MS35743, NAS1097 / 1198 / 1199 / 1200,
+  BACR15BA / BB / CE / FT, AN123 (head depends on the number range).
+Tags: `documented` (workbook) · `catalog` (Cherry PDFs) · `hint` (decoded / public pages).
 
 ## Tool Database — what's never merged
 

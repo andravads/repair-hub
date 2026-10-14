@@ -4,7 +4,7 @@
 (function () {
 "use strict";
 
-var BUILD = { version: "1.6.0", date: "2026-10-14", sources: [
+var BUILD = { version: "1.8.0", date: "2026-10-15", sources: [
   { file: "Repair Handbook 101.docx", note: "TVE-5 — T-Codes, finding definitions, GD&T, plate nut identification, fastener references, important links" },
   { file: "Rectification History Database.xlsx", note: "sheet Main (historical rectification records) and sheet List Engine (shop visit list) — History records view" },
   { file: "Repair Note Dema.xlsx", note: "sheets Module 22x, Module 23x, Plate Nut- Insert, Exhaust Sleeve, Spinner Cone, Flowpath Repair, CMM or retail" },
@@ -13,6 +13,8 @@ var BUILD = { version: "1.6.0", date: "2026-10-14", sources: [
   { file: "ZAS_CMSORD_2025_2026_Combined_Cleaned.xlsx", note: "Main source — 7,020 past repair orders (full year 2025 + Jan–Sep 2026), one record per order with its ordered repair steps — Repair scheme search view" },
   { file: "ZAS_CMORD_2025.xlsx and ZAS_CMSORD_2026 (up to Sep 2026).xlsx", note: "Raw exports, matched by order number to add created date, group, station / work center and shop-visit text (ESN)" },
   { file: "Tool_Database_CFM56.xlsx", note: "sheet Database — 1,029 unique tools aggregated from 4,853 task rows (Tool No, Description, Rack, Type, Status, Module, Function, Task) — Tool Database view" },
+  { file: "ESN_Identification_List.xlsx (data/esn-map.js)", note: "155 ESN / APU serials mapped to an engine family — 120 from the order data itself, 35 identified by the user; all GE90 variants treated as GE90" },
+  { file: "Cherry rivet catalogs supplied by the user (data/rivet-reference.js)", note: "CherryLOCK quick card, Nut Plate Rivets CCR244/264/274, 3/32 SPR, CherryLOCK ‘A’ (NAS1398/1399), CherryMAX — tagged “catalog”; plus public listings for MS / NAS / BACR / AN solid rivets" },
   { file: "Online reference (data/online-reference.js)", note: "Internet-researched rivet / plate nut naming rules and cross-references, retrieved 2026-10-12, each with its source link — hints only, used by the Rivet / Fastener cards and the P/N Analyzer" },
   { file: "Repair note photos / figures (assets/repair-note-images)", note: "6 images supplied by the user for the Repair Notes cards — not part of Repair Note Dema.xlsx" }
 ]};
@@ -21,7 +23,7 @@ var RECT = window.RECTIFICATION || [], ENGINES = window.ENGINE_LIST || [],
     RN = window.REPAIR_NOTE || {}, HB = window.HANDBOOK || {}, IMGS = window.HANDBOOK_IMAGES || [],
     EIN = window.CONSUMABLE_EIN || {file:"",rows:[]}, SEI = window.CONSUMABLE_SEI || {file:"",rows:[]},
     TOOLDB = window.TOOL_DATABASE || {file:"",tools:[]}, SCHEME_META = window.SCHEME_META || {count:0},
-    RN_IMGS = window.REPAIR_NOTE_IMAGES || {};
+    RN_IMGS = window.REPAIR_NOTE_IMAGES || {}, ESN_MAP = window.ESN_MAP || {};
 
 /* ---------- helpers ---------- */
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){
@@ -200,6 +202,8 @@ function trunc(s,n){s=String(s||"");return s.length>n?s.slice(0,n-1).replace(/\s
 
 function schemeIndex(d){
   SCH.rec=d.records;
+  /* engine from ESN: only fills an order that has an ESN but no engine of its own */
+  SCH.rec.forEach(function(r){ if(!r.engine && r.esn && ESN_MAP[r.esn]){ r.engine=ESN_MAP[r.esn]; r.ee=1; } });
   SCH.idx=SCH.rec.map(function(r){
     var dk=r.date? parseInt(r.date.replace(/-/g,""),10) : (parseInt(r.year,10)||0)*10000;   /* created date; year start if undated */
     return {pn:(r.partNumber||"").toLowerCase(), pk:alnum(r.partNumber), nm:(r.partName||"").toLowerCase(),
@@ -297,7 +301,7 @@ function schemeBody(r){
   var h='<dl class="kv"><dt>Order</dt><dd>'+dash(r.orderNo)+"</dd><dt>Created</dt><dd>"+dash(r.date||r.year)
     +"</dd><dt>Part no.</dt><dd>"+dash(r.partNumber)
     +"</dd><dt>Part name</dt><dd>"+dash(r.partName)+(r.nl?' <span class="lnk">linked from other orders with the same part no.</span>':"")
-    +"</dd><dt>Group</dt><dd>"+dash(r.group)+"</dd><dt>Engine</dt><dd>"+dash(r.engine)
+    +"</dd><dt>Group</dt><dd>"+dash(r.group)+"</dd><dt>Engine</dt><dd>"+dash(r.engine)+(r.ee?' <span class="lnk">identified from ESN '+esc(r.esn)+"</span>":"")
     +"</dd><dt>ESN</dt><dd>"+dash(r.esn)+"</dd><dt>Serial no.</dt><dd>"+dash(r.serialNo)
     +"</dd><dt>Station</dt><dd>"+dash(r.station)+"</dd><dt>Work center</dt><dd>"+dash(r.wc)
     +"</dd><dt>Shop visit</dt><dd>"+dash(r.rev)+"</dd></dl>"
@@ -318,7 +322,7 @@ function schemeCard(i,q,pq){
   var meta='<span class="tag '+(TYPE_TAG[r.type]||"t-n")+'">'+esc(TYPE_LABEL[r.type]||r.type)+"</span>"
     +'<span class="tag t-n">Order '+esc(r.orderNo)+"</span>"
     +((r.date||r.year)?'<span class="tag t-n">'+esc(r.date||r.year)+"</span>":"")
-    +(r.engine?'<span class="tag t-n">'+esc(r.engine)+"</span>":"")
+    +(r.engine?'<span class="tag t-n'+(r.ee?" t-esn":"")+'"'+(r.ee?' title="Engine identified from the ESN"':"")+">"+esc(r.engine)+(r.ee?" · from ESN":"")+"</span>":"")
     +(r.esn?'<span class="tag t-n">ESN '+hh(r.esn)+"</span>":"")
     +(r.group?'<span class="tag t-n">Grp '+hh(r.group)+"</span>":"")
     +(r.station?'<span class="tag t-n">'+hl(r.station,q)+"</span>":"")
@@ -431,11 +435,134 @@ function frIn(n,d){var g=gcd(n,d); n=n/g; d=d/g; return d===1?String(n):n+"/"+d;
 function inch(x){var t=(Math.round(x*1000)/1000).toFixed(3).replace(/0+$/,"").replace(/\.$/,""); return (t.charAt(0)==="."?"0":"")+t+" in";}
 function padN(n,w){var t=String(n); while(t.length<w) t="0"+t; return t;}
 function diaTxt(c){return frIn(c,32)+" in ("+inch(c/32)+")";}
-function gripTxt(g){return "≈ "+inch((g-1)/16)+" – "+inch(g/16);}
+function gripTxt(g){return g<=1? "up to "+inch(Math.floor(g*62.5+1e-9)/1000) : inch(Math.floor((g-1)*62.5+1e-9)/1000+0.001)+" – "+inch(Math.floor(g*62.5+1e-9)/1000);}
 function lenTxt(l16){return frIn(Math.round(l16*2),32)+" in ("+inch(l16/16)+")";}
+
+/* ---------- Cherry catalog + solid-rivet standards (data/rivet-reference.js) ---------- */
+var RV = window.RIVET_REF || {sources:{},solid:{},lock:{},bulbed:{},acode:{},asuffix:{},max:{prefix:{},head:{},listed:[],sh:{}},nut:{heads:{},mat:{},finish:{}},holes:{},tools:{},headGroups:[],headNames:{},warn:""};
+function gHi(g){return Math.floor(g*62.5+1e-9)/1000;}
+function gLo(g){return g<=1?0:Math.floor((g-1)*62.5+1e-9)/1000+0.001;}
+function gripRange(g){return g<=1? "up to "+inch(gHi(g)) : inch(gLo(g))+" – "+inch(gHi(g));}
+
+function decodeCherry(p){
+  var m, o=null;
+  function base(fam,name,head,line){
+    return {fam:fam,famName:name,kind:"Blind",head:head,std:"",mat:"",diaCode:0,dia:"",lenKind:"grip",n:0,lenCode:"",lenIn:null,lenText:"",
+            notes:[],make:null,noSib:false,src:[],famNote:"",line:line,nas:"",sleeve:"",stem:"",headCode:"",breakdown:[],hole:"",tool:"",strength:"",sibs:null,srcCat:true,equiv:[]};
+  }
+  function fin(o,dia,grp){
+    o.diaCode=dia; o.dia=diaTxt(dia); if(grp&&RV.holes[grp]) o.hole=RV.holes[grp][dia]||"";
+  }
+  function dashN(n,w){return padN(n,w);}
+  /* CherryLOCK standard / bulbed / ‘A’ code  — CR + 2-digit material series + 2-digit head series (+ plating) */
+  if((m=/^CR(\d{2})(\d{2})(CW|P|S)?-(\d+)-(\d+)$/.exec(p))){
+    var key=m[1]+m[2], suf=m[3]||"", T=RV.lock[key], line="lock";
+    if(!T&&RV.bulbed[key]){T=RV.bulbed[key];line="bulbed";}
+    if(!T&&RV.acode[key]){T=RV.acode[key];line="acode";}
+    if(T&&suf&&line!=="acode") T=null;
+    if(T){
+      var nm=(line==="lock"?"CherryLOCK":line==="bulbed"?"Bulbed CherryLOCK":"CherryLOCK ‘A’ code")+" CR"+key;
+      o=base("CR"+key,nm+" — "+RV.headNames[T.h]+", "+T.s+" / "+T.t,RV.headNames[T.h],line);
+      o.headCode=T.h; o.sleeve=T.s; o.stem=T.t; o.mat=T.s+" sleeve / "+T.t+" stem";
+      o.nas=T.nas+(suf==="CW"||suf==="P"?"W":suf==="S"?"S":"");
+      o.std=o.nas+" standard page"+(line==="bulbed"?"":" · NAS1400 procurement spec");
+      o.strength=T.sh||""; o.src=line==="acode"?["K4","K1"]:["K1"];
+      o.tool=RV.tools.lock; fin(o,+m[4],line==="acode"?"acode":line);
+      o.n=+m[5]; o.make=function(n){return "CR"+key+suf+"-"+m[4]+"-"+dashN(n,m[5].length);};
+      o.famNote=line==="acode"?"‘A’ code = the non-shift-tooling version of the NAS1398 / 1399 rivets. "+(suf?"Suffix "+suf+": "+(RV.asuffix[suf]||"")+". ":""):
+        "Series “"+m[1]+"” is the sleeve / stem material, “"+m[2]+"” the head: the same two digits on another series give the same size and head in another material.";
+      o.breakdown=[["CR","Cherry rivet"],[m[1],T.s+" / "+T.t],[m[2],RV.headNames[T.h]]].concat(suf?[[suf,RV.asuffix[suf]||"plating variant"]]:[]).concat([["−"+m[4],"diameter "+diaTxt(+m[4])],["−"+m[5],"max grip "+(+m[5])+"/16 in"]]);
+      var tbl=line==="lock"?RV.lock:line==="bulbed"?RV.bulbed:RV.acode;
+      o.sibs=function(){
+        var mat=[],head=[],k2,T2;
+        Object.keys(tbl).forEach(function(k){
+          T2=tbl[k]; if(k===key) return;
+          var item={pn:"CR"+k+suf+"-"+m[4]+"-"+m[5],mat:T2.s+" / "+T2.t,nas:T2.nas+(suf==="CW"||suf==="P"?"W":suf==="S"?"S":"")};
+          if(T2.h===T.h) mat.push(item); else if(T2.s===T.s&&T2.t===T.t) head.push(item);
+        });
+        /* head sibling when the materials are not identical in the table (e.g. 2x62 ↔ 2x63) */
+        var other=line==="bulbed"?key.slice(0,3)+(T.h==="C"?String(+key.slice(3)+1):String(+key.slice(3)-1)):key.slice(0,2)+(T.h==="C"?(line==="acode"?"73":"63"):(line==="acode"?"72":"62"));
+        if(tbl[other]&&!head.some(function(x){return x.pn.indexOf("CR"+other)===0;})) head.push({pn:"CR"+other+suf+"-"+m[4]+"-"+m[5],mat:tbl[other].s+" / "+tbl[other].t,nas:tbl[other].nas+(suf==="CW"||suf==="P"?"W":suf==="S"?"S":"")});
+        return {mat:mat,head:head,size:[]};
+      };
+      var N=T.nas.match(/^NAS(\d{4})([A-Z])$/);
+      if(N&&line!=="bulbed") o.equiv.push({pn:T.nas+o.diaCode+"-"+o.n,why:"NAS standard-page form of the same size and grip (catalog cross-reference NAS "+N[1]+N[2]+"( )A( ) ↔ CR"+key+"-( )-( )). Pattern only for this size."});
+      if(line==="lock"&&RV.acode["2"+key.slice(1,2)+(T.h==="C"?"72":"73")]){var ak="2"+key.slice(1,2)+(T.h==="C"?"72":"73"); o.equiv.push({pn:"CR"+ak+"-"+m[4]+"-"+m[5],why:"The ‘A’ code series of the same NAS page — same material and head, non-shift tooling."});}
+      return o;
+    }
+  }
+  /* CherryMAX */
+  if((m=/^CR(3\d{2})(\d)(P|EE)?-(\d+)-(\d+)$/.exec(p))){
+    var pre=RV.max.prefix[m[1]], hd=RV.max.head[m[2]];
+    if(pre&&hd){
+      var k4=m[1]+m[2];
+      o=base("CR"+k4,"CherryMAX CR"+k4+" — "+hd[1]+", "+pre.z+" shank, "+pre.s+" / "+pre.t,RV.headNames[hd[0]],"max");
+      o.headCode=hd[0]; o.sleeve=pre.s; o.stem=pre.t; o.mat=pre.s+" sleeve / "+pre.t+" stem";
+      o.std="CherryMAX (PS-CMR-3000) · head like "+hd[1].replace(/ \(.*/,"")+" solid rivets"; o.src=["K5"];
+      o.strength=RV.max.sh[pre.s]||""; o.tool=RV.tools.max; fin(o,+m[4],pre.z==="nominal"?"maxNom":"maxOver");
+      o.n=+m[5]; o.make=function(n){return "CR"+k4+(m[3]||"")+"-"+m[4]+"-"+dashN(n,m[5].length);};
+      o.famNote="Bulbed blind head. "+(pre.z==="oversize"?"Oversize = 1/64 in larger shank (silver driving anvil) and needs the larger hole.":"Nominal shank (gold driving anvil).")+" Last head digit: even = flush, odd = protruding. Do not clean or degrease before installation — the lubricant must stay.";
+      if(RV.max.listed.indexOf(k4)<0) o.notes.push("CR"+k4+" is not in the CherryMAX pages supplied.");
+      o.breakdown=[["CR","Cherry rivet"],[m[1],pre.z+" · "+pre.s+" / "+pre.t],[m[2],hd[1]]].concat(m[3]?[[m[3],m[3]==="P"?"aluminum coat (MIL-DTL-83488)":"aluminum coat (NAS4006)"]]:[]).concat([["−"+m[4],"diameter "+diaTxt(+m[4])],["−"+m[5],"max grip "+(+m[5])+"/16 in"]]);
+      o.sibs=function(){
+        var mat=[],head=[],size=[];
+        Object.keys(RV.max.prefix).forEach(function(pf){
+          var P2=RV.max.prefix[pf], k2=pf+m[2];
+          if(RV.max.listed.indexOf(k2)<0||k2===k4) return;
+          var item={pn:"CR"+k2+(m[3]||"")+"-"+m[4]+"-"+m[5],mat:P2.s+" / "+P2.t+" ("+P2.z+")",nas:"–"};
+          if(P2.z===pre.z) mat.push(item); else if(P2.s===pre.s) size.push(item);
+        });
+        Object.keys(RV.max.head).forEach(function(hn){
+          var k2=m[1]+hn; if(hn===m[2]||RV.max.listed.indexOf(k2)<0) return;
+          head.push({pn:"CR"+k2+(m[3]||"")+"-"+m[4]+"-"+m[5],mat:pre.s+" / "+pre.t,nas:RV.max.head[hn][1]});
+        });
+        return {mat:mat,head:head,size:size};
+      };
+      return o;
+    }
+  }
+  /* Cherry nut plate rivets CCR244 / 264 / 274 */
+  if((m=/^CCR(244|264|274)(CS|SS)(-?)(\d+)-(\d+)([A-Z0-9]*)$/.exec(p))){
+    var hh=RV.nut.heads[m[1]], mt=RV.nut.mat[m[2]];
+    if(hh&&mt){
+      o=base("CCR"+m[1],"Cherry nut plate rivet CCR"+m[1]+" — "+hh[1]+", "+mt.s+" / "+mt.t,RV.headNames[hh[0]],"nut");
+      o.headCode=hh[0]; o.sleeve=mt.s; o.stem=mt.t; o.mat=mt.s+" sleeve / "+mt.t+" stem";
+      o.std="NASM25027 nut plates · "+hh[1]+" · pull-through (hollow) style"; o.src=["K2"]; o.tool=RV.tools.nut; fin(o,+m[4],"nut");
+      o.n=+m[5]; o.make=function(n){return "CCR"+m[1]+m[2]+m[3]+m[4]+"-"+dashN(n,m[5].length)+m[6];};
+      o.famNote="Low-cost pull-through rivet for nut plates. Catalog warning: blind rivets are not always a suitable substitute for solid rivets (AC 43.13-1A). Online: CCR264 was superseded by BACR15DR and then MS20605, and they are not interchangeable when a drawing names one.";
+      if(m[6]) o.notes.push("Finish code “"+m[6]+"”: "+(RV.nut.finish[m[6]]||"see the finish table in the catalog")+".");
+      o.breakdown=[["CCR","Cherry nut plate rivet"],[m[1],hh[1]],[m[2],mt.s+" sleeve / "+mt.t+" stem"],["−"+m[4],"diameter "+diaTxt(+m[4])],["−"+m[5],"max grip "+(+m[5])+"/16 in"]].concat(m[6]?[[m[6],"finish: "+(RV.nut.finish[m[6]]||"finish code")]]:[]);
+      o.sibs=function(){
+        var mat=[],head=[];
+        Object.keys(RV.nut.mat).forEach(function(k){ if(k===m[2]) return;
+          var x=RV.nut.mat[k]; mat.push({pn:"CCR"+m[1]+k+m[3]+m[4]+"-"+m[5]+m[6],mat:x.s+" / "+x.t,nas:"–"}); });
+        Object.keys(RV.nut.heads).forEach(function(k){ if(k===m[1]) return;
+          head.push({pn:"CCR"+k+m[2]+m[3]+m[4]+"-"+m[5]+m[6],mat:mt.s+" / "+mt.t,nas:RV.nut.heads[k][1]}); });
+        return {mat:mat,head:head,size:[]};
+      };
+      return o;
+    }
+  }
+  /* Cherry 3/32 SPR (self plugging) — Boeing BACR15GR */
+  if((m=/^CR1122-3-(\d+(?:\.\d)?)$/.exec(p))){
+    o=base("CR1122","Cherry 3/32 in SPR self-plugging rivet — 100° countersunk head, 2017 aluminum / A-286 CRES",RV.headNames.C,"spr");
+    o.headCode="C"; o.sleeve="2017 aluminum"; o.stem="A-286 CRES"; o.mat="2017 aluminum sleeve / A-286 CRES stem";
+    o.std="Boeing BACR15GR · meets BPS-R-192 · exceeds NASM25027 torque-out / push-out"; o.src=["K3"]; o.tool=RV.tools.spr; fin(o,3,"spr");
+    var gv=parseFloat(m[1]); o.n=gv; o.strength="shear 255 lb, tensile 125 lb, stem retention 40 lb (minimum)";
+    o.lenText="grip code −"+m[1]+" → "+(gv===2.5?".080 – .125 in":gripRange(gv))+" (max "+(gv===2.5?"1/8":gv+"/16")+" in)";
+    o.make=function(n){return (n>=3&&n<=9&&n%1===0)?"CR1122-3-"+padN(n,2):null;};
+    o.equiv.push({pn:"BACR15GR3-"+(gv===2.5?2:Math.round(gv)),why:"Boeing P/N listed by Cherry for this grip (CR1122-3-02.5 ↔ BACR15GR3-2, -03 ↔ -3 …)."});
+    o.famNote="Self-plugging, locked-spindle, aluminum sleeve; stem breaks flush. Cherry says it was developed to replace solid and pull-through rivets in non-structural applications only. Grips −02.5 to −09.";
+    o.breakdown=[["CR1122","Cherry SPR (material, head, series)"],["−3","diameter 3/32 in"],["−"+m[1],"max grip "+(gv===2.5?"2.5/16":gv+"/16")+" in"]];
+    o.sibs=function(){return {mat:[],head:[],size:[]};};
+    return o;
+  }
+  return null;
+}
 
 function decodePN(raw){
   var p=pnk(raw), m, o=null;
+  var ch=decodeCherry(p); if(ch) return ch;
   function mk(fam){
     var f=OR.families[fam]||{};
     return {fam:fam,famName:f.name||fam,kind:f.kind||"",head:f.head||"",std:f.std||"",mat:"",diaCode:0,dia:"",lenKind:"",n:0,
@@ -471,11 +598,80 @@ function decodePN(raw){
     o.lenCode=m[2]+(m[3]?"-"+m[3]:""); o.lenIn=((+m[2])+(m[3]?(+m[3])/10:0))/16; o.lenText=lenTxt((+m[2])+(m[3]?(+m[3])/10:0));
     o.make=function(n){return "MS20615-"+m[1]+"M"+n;};
   }
+  function mkS(key,extra){
+    var T=RV.solid[key]||{h:"?",m:"",s:[],n:""};
+    var x={fam:key,famName:key+" solid rivet — "+(RV.headNames[T.h]||"head not identified"),kind:"Solid",head:RV.headNames[T.h]||"",std:key,mat:T.m||"",diaCode:0,dia:"",
+           lenKind:"",n:0,lenCode:"",lenIn:null,lenText:"",notes:[],make:null,noSib:true,src:T.s||[],famNote:T.n||"",line:"solid",nas:"",sleeve:"",stem:"",
+           headCode:T.h==="?"?"":T.h,breakdown:[],hole:"",tool:"",strength:"",sibs:null,srcCat:false,equiv:[]};
+    return x;
+  }
+  if(!o){
+    if((m=/^(NAS1097|NAS1199|NAS1200)([A-Z]{0,2})(\d+)-(\d+)(P?)$/.exec(p))){
+      o=mkS(m[1]); o.diaCode=+m[3]; o.n=+m[4]; o.lenKind="length"; o.lenCode=m[4]; o.lenIn=o.n/16; o.lenText=lenTxt(o.n); o.noSib=false;
+      o.make=function(n){return m[1]+m[2]+m[3]+"-"+n+m[5];};
+      if(m[1]==="NAS1200") o.mat=m[2]==="M"?"Monel (nickel-copper)":"iron alloy / CRES (no material letter)"; else if(m[1]==="NAS1097") o.mat="aluminum alloy (letters “"+m[2]+"”)"; 
+      if(m[5]) o.notes.push("Suffix P: cadmium-treated on one listing.");
+      o.breakdown=[[m[1],mkS(m[1]).famName.replace(m[1]+" solid rivet — ","solid rivet, ")],m[2]?[m[2],"material letter"]:null,["−"+m[3],"diameter "+diaTxt(+m[3])],["−"+m[4],"length "+m[4]+"/16 in"]].filter(Boolean);
+    } else if((m=/^MS14218(AD|E)(\d+)-(\d+)(R?)$/.exec(p))){
+      o=mkS("MS14218"); o.diaCode=+m[2]; o.n=+m[3]; o.lenKind="length"; o.lenCode=m[3]; o.lenIn=o.n/16; o.lenText=lenTxt(o.n); o.noSib=false;
+      o.mat=m[1]==="AD"?"aluminum 2117 (AD)":"aluminum 7075 (E)"; o.make=function(n){return "MS14218"+m[1]+m[2]+"-"+n+m[4];};
+      if(m[4]) o.notes.push("Suffix R is not decoded.");
+      o.breakdown=[["MS14218","solid rivet, 120° flush, reverse chamfer"],[m[1],o.mat],["−"+m[2],"diameter "+diaTxt(+m[2])],["−"+m[3],"length "+m[3]+"/16 in"]];
+    } else if((m=/^AN123(\d{3})$/.exec(p))){
+      var an=+m[1]; o=mkS("AN123");
+      if(an>=151&&an<=300){o.head=RV.headNames.U; o.headCode="U"; o.famName="AN123 solid rivet — universal head (AMS 7229 range)";}
+      else if(an>=601&&an<=750){o.head=RV.headNames.C; o.headCode="C"; o.famName="AN123 solid rivet — 100° flush head (AMS 7232 range)";}
+      else {o.head=""; o.headCode=""; o.famName="AN123 solid rivet — number outside the 151–300 / 601–750 ranges found";}
+      o.mat="not stated"; o.breakdown=[["AN123","AN solid rivet series"],[m[1],an>=151&&an<=300?"in the universal-head range":an>=601&&an<=750?"in the 100° flush-head range":"head not identified"]];
+    } else if((m=/^(MS20470|MS20613|MS9318|MS9403|MS9460|MS14218|MS35743|NAS1198|NAS1097|NAS1199|NAS1200|BACR15[A-Z]{2}|AN12[345])/.exec(p))){
+      var fk=RV.solid[m[1]]?m[1]:(m[1].indexOf("AN12")===0?"AN123":m[1]); o=mkS(fk);
+      if(!RV.solid[fk]) o.notes.push("Family recognised but not listed in the reference data.");
+      o.notes.push("Size coding for this P/N form is not decoded.");
+      o.breakdown=[[m[1],o.famName]];
+    }
+  }
+  if(o&&(o.fam==="NAS1398"||o.fam==="NAS1399")&&o.matLetter){
+    var LM={D:"2017 aluminum",B:"5056 aluminum",M:"Monel",C:"A-286 CRES",CW:"A-286 CRES, cadmium plated",MW:"Monel, cadmium plated",CS:"A-286 CRES, silver plated",MS:"Monel, silver plated"};
+    if(LM[o.matLetter]){ o.mat=LM[o.matLetter]+" (catalog letter code)"; o.srcCat=true; o.src=["K4","K1"]; }
+    o.equiv=o.equiv||[];
+    var nasKey=o.fam+o.matLetter.charAt(0);
+    var stdK=Object.keys(RV.lock).filter(function(k){return RV.lock[k].nas===nasKey;})[0], aK=Object.keys(RV.acode).filter(function(k){return RV.acode[k].nas===nasKey;})[0];
+    o.headCode=o.fam==="NAS1398"?"U":"C"; o.head=RV.headNames[o.headCode]; o.kind="Blind";
+    if(stdK) o.equiv.push({pn:"CR"+stdK+"-"+o.diaCode+"-"+o.n,why:"Cherry CherryLOCK of the same NAS page, size and grip (catalog cross-reference)."});
+    if(aK) o.equiv.push({pn:"CR"+aK+(/^(CW|MW|CS|MS)$/.test(o.matLetter)?(o.matLetter==="CW"?"CW":o.matLetter==="MW"?"P":"S"):"")+"-"+o.diaCode+"-"+o.n,why:"Cherry CherryLOCK ‘A’ code of the same NAS page, size and grip (catalog cross-reference)."});
+    o.breakdown=[["NAS"+o.fam.slice(3),o.head+" blind rivet standard page"],[o.matLetter,LM[o.matLetter]||"material letter"],["−"+o.diaCode,"diameter "+diaTxt(o.diaCode)],["−"+o.n,"max grip "+o.n+"/16 in"]];
+    o.sibs=null;
+  }
+  if(!o&&(m=/^NAS(1738|1739)([A-Z])(\d+)-(\d+)$/.exec(p))){
+    var bk=Object.keys(RV.bulbed).filter(function(k){return RV.bulbed[k].nas===("NAS"+m[1]+m[2]);})[0], BT=bk?RV.bulbed[bk]:null;
+    o={fam:"NAS"+m[1],famName:"NAS"+m[1]+" bulbed blind rivet — "+(m[1]==="1739"?RV.headNames.C:RV.headNames.U),kind:"Blind",head:m[1]==="1739"?RV.headNames.C:RV.headNames.U,std:"NAS"+m[1],
+       mat:BT?BT.s+" sleeve / "+BT.t+" stem":"",diaCode:+m[3],dia:"",lenKind:"grip",n:+m[4],lenCode:"",lenIn:null,lenText:"",notes:[],make:null,noSib:false,src:["K1"],famNote:"Bulbed CherryLOCK standard page.",
+       line:"bulbed",nas:"NAS"+m[1]+m[2],sleeve:BT?BT.s:"",stem:BT?BT.t:"",headCode:m[1]==="1739"?"C":"U",breakdown:[["NAS"+m[1],"bulbed blind rivet, "+(m[1]==="1739"?"countersunk":"universal")],[m[2],BT?BT.s+" / "+BT.t:"material letter"],["−"+m[3],"diameter "+diaTxt(+m[3])],["−"+m[4],"max grip "+m[4]+"/16 in"]],
+       hole:"",tool:"",strength:"",sibs:null,srcCat:true,equiv:bk?[{pn:"CR"+bk+"-"+m[3]+"-"+m[4],why:"Cherry bulbed CherryLOCK of the same NAS page (catalog cross-reference)."}]:[]};
+    o.make=function(n){return "NAS"+m[1]+m[2]+m[3]+"-"+n;};
+    o.hole=(RV.holes.bulbed&&RV.holes.bulbed[o.diaCode])||"";
+  }
+  /* readable breakdown for the older solid / NAS branches */
+  if(o&&(!o.breakdown||!o.breakdown.length)){
+    var b=null;
+    if((m=/^MS20427M(\d+)-(\d+)(?:-(\d))?$/.exec(p))) b=[["MS20427","solid rivet, 100° countersunk"],["M","Monel"],["−"+m[1],"diameter "+diaTxt(+m[1])],["−"+m[2]+(m[3]?"-"+m[3]:""),"length "+(m[3]?m[2]+".5":m[2])+"/16 in"]];
+    else if((m=/^MS20426AD(\d+)-(\d+)(?:-(\d))?$/.exec(p))) b=[["MS20426","solid rivet, 100° countersunk"],["AD","aluminum alloy"],["−"+m[1],"diameter "+diaTxt(+m[1])],["−"+m[2]+(m[3]?"-"+m[3]:""),"length "+(m[3]?m[2]+".5":m[2])+"/16 in"]];
+    else if((m=/^MS20615-(\d+)M(\d+)(?:-(\d))?$/.exec(p))) b=[["MS20615","solid rivet, universal head"],["−"+m[1],"diameter "+diaTxt(+m[1])],["M","Monel"],[m[2]+(m[3]?"-"+m[3]:""),"length "+(m[3]?m[2]+".5":m[2])+"/16 in"]];
+    if(b) o.breakdown=b;
+  }
+  if(o&&!o.headCode){ o.headCode=headCodeOf(o); }
   if(!o) return null;
   if(o.diaCode) o.dia=diaTxt(o.diaCode);
-  if(o.lenKind==="grip" && o.n){ o.lenIn=o.n/16; o.lenText="grip code −"+o.n+" → "+gripTxt(o.n).replace("≈ ","about ")+" (max "+o.n+"/16 in)"; }
+  if(o.lenKind==="grip" && o.n){ o.lenIn=o.n/16; o.lenText="grip code −"+o.n+" → "+gripTxt(o.n)+" (max "+o.n+"/16 in)"; }
   if(o.half) o.noSib=true;
+  if(!o.srcCat&&(o.fam==='MS20427'||o.fam==='MS20426'||o.fam==='MS20615')){ var RS=RV.solid[o.fam]; if(RS){ o.src=RS.s.concat(o.src||[]); o.headCode=RS.h; o.equiv=o.equiv||[]; } }
+  o.equiv=o.equiv||[]; o.breakdown=o.breakdown||[];
   return o;
+}
+function headCodeOf(d){
+  if(d.headCode) return d.headCode;
+  var h=d.head||"";
+  if(/universal|protruding/i.test(h)) return "U"; if(/shear|reduced/i.test(h)) return "S"; if(/120/.test(h)) return "X"; if(/countersunk|flush/i.test(h)) return "C"; return "";
 }
 
 /* ---- documented rivet index, built from the Plate Nut- Insert / Exhaust Sleeve entries (the workbook) ---- */
@@ -526,7 +722,7 @@ function rivText(it){
   if(it.cat==="solid") t.push("solid"); else if(it.cat) t.push("blind"); if(it.cat==="uni") t.push("universal head"); if(it.cat==="flush") t.push("flush head");
   (it.use||[]).forEach(function(u){t.push(u.desc,u.use);});
   if(it.lenDoc) t.push(it.lenDoc+" in length");
-  if(d){ t.push(d.kind,d.head,d.mat,d.dia,d.famName,d.lenText); if(d.diaCode) t.push(frIn(d.diaCode,32)+" "+inch(d.diaCode/32)); }
+  if(d){ t.push(d.kind,d.head,d.mat,d.dia,d.famName,d.lenText,d.nas,d.std,d.sleeve,d.stem); if(d.diaCode) t.push(frIn(d.diaCode,32)+" "+inch(d.diaCode/32)); }
   return t.join(" | ");
 }
 function scoreFast(it,q){
@@ -549,13 +745,56 @@ function relTags(it,q){
     out.push(["t-calc","same family "+o.fam]);
     if(p.diaCode&&p.diaCode===o.diaCode) out.push(["t-dim","same diameter −"+o.diaCode]); else if(p.diaCode&&o.diaCode) out.push(["t-calc","different diameter"]);
     if(p.n&&o.n&&p.n!==o.n) out.push(["t-calc","different "+(o.lenKind==="length"?"length":"grip")+": −"+p.n+" vs −"+o.n]);
+  } else if(p&&o&&p.line&&p.line!=="solid"&&o.line===p.line&&p.headCode&&p.headCode===o.headCode&&p.fam!==o.fam&&zn(it.id)!==zn(one)){
+    out.push(["t-calc","same configuration, different material ("+o.fam+" vs "+p.fam+")"]);
+    if(p.diaCode&&p.diaCode===o.diaCode) out.push(["t-dim","same diameter −"+o.diaCode]); else if(p.diaCode&&o.diaCode) out.push(["t-calc","different diameter"]);
+    if(p.n&&o.n&&p.n!==o.n) out.push(["t-calc","different grip: −"+p.n+" vs −"+o.n]);
   }
   return out;
 }
 function pnChip(pn,hint){return '<button class="pnchip" data-q="'+esc(pn)+'">'+esc(pn)+"</button>"+(hint?'<span class="chiphint">'+esc(hint)+"</span>":"");}
 function anaChip(pn,hint){return '<button class="pnchip hintchip" data-ana="'+esc(pn)+'" title="Open in P/N Analyzer">'+esc(pn)+"</button>"+(hint?'<span class="chiphint">'+esc(hint)+"</span>":"");}
 function srcLinks(keys){
-  return (keys||[]).map(function(k){var s=OR.sources[k]; return s?'<a href="'+esc(s.u)+'" target="_blank" rel="noopener">'+esc(s.t.split(" (")[0])+" ↗</a>":"";}).filter(Boolean).join(" · ");
+  return (keys||[]).map(function(k){
+    var x=OR.sources[k]||RV.sources[k]; if(!x) return "";
+    var lab=esc(x.t.split(" (")[0].replace(/ — file .*/,""));
+    return x.u? '<a href="'+esc(x.u)+'" target="_blank" rel="noopener">'+lab+" ↗</a>" : '<span class="srcdoc" title="'+esc(x.t)+'">'+lab+" · supplied PDF</span>";
+  }).filter(Boolean).join(" · ");
+}
+function hintTag(d){return d&&d.srcCat?'<span class="tag t-dim">catalog</span> ':'<span class="tag t-calc">hint</span> ';}
+function readerBoxes(d){
+  if(!d||!d.breakdown||!d.breakdown.length) return "";
+  return '<div class="reader" aria-label="How this P/N is built">'+d.breakdown.map(function(b){
+    return '<div class="rbox"><div class="rcode">'+esc(b[0])+'</div><div class="rmean">'+esc(b[1])+"</div></div>";}).join("")+"</div>";
+}
+/* shared blocks: other materials / heads / equivalents / solid ↔ blind with the same head shape */
+function altBlocks(d,raw){
+  if(!d) return "";
+  var h="", S=d.sibs?d.sibs():null;
+  function st(pn,cat){ var x=pnStatus(pn); if(x[0]==="t-calc"&&cat) x=["t-dim",cat]; return '<span class="tag '+x[0]+'">'+esc(x[1])+"</span>"; }
+  function tbl(list,title,intro,cat){
+    if(!list||!list.length) return "";
+    return "<h2>"+title+"</h2>"+(intro?'<p class="muted" style="margin:0 0 4px">'+intro+"</p>":"")
+      +'<div class="tw"><table class="cmp"><thead><tr><th>P/N</th><th>Sleeve / stem or head</th><th>Standard page</th><th>Status</th></tr></thead><tbody>'
+      +list.map(function(x){return "<tr><td>"+pnChipAna(x.pn)+"</td><td>"+esc(x.mat)+"</td><td>"+esc(x.nas||"–")+"</td><td>"+st(x.pn,cat)+"</td></tr>";}).join("")+"</tbody></table></div>";
+  }
+  if(S){
+    h+=tbl(S.mat,"Same size &amp; configuration, different material","Same head, diameter and grip code — only the sleeve / stem material changes (for example CR2562-2-2 ↔ CR2662-2-2). Whether that size is made in every material is not checked here.","series in Cherry catalog");
+    h+=tbl(S.head,"Same material, different head","Same diameter and grip; universal ↔ countersunk (or another head style).","series in Cherry catalog");
+    h+=tbl(S.size,"Other shank size class (nominal ↔ oversize)","Oversize shank is 1/64 in larger and needs a larger hole — not for the same hole.","series in Cherry catalog");
+  }
+  if(d.equiv&&d.equiv.length) h+='<h2>NAS / Cherry / Boeing equivalents <span class="tag t-dim">catalog</span></h2><ul class="lst" style="font-family:inherit">'+d.equiv.map(function(c){
+    return "<li>"+pnChipAna(c.pn)+" — "+esc(c.why)+"</li>";}).join("")+"</ul>";
+  var hc=headCodeOf(d), hg=(RV.headGroups||[]).filter(function(g){return g.h===hc;})[0];
+  if(hg){
+    var meSolid=d.kind&&d.kind.indexOf("Solid")===0;
+    function memb(l){return "<ul class=\"lst\" style=\"font-family:inherit\">"+l.map(function(x){return "<li><b>"+esc(x[0])+"</b> — "+esc(x[1])+"</li>";}).join("")+"</ul>";}
+    h+='<h2>Same head shape — '+esc(hg.label)+'</h2>'
+      +'<div class="note"><b>Solid ≠ blind.</b> '+esc(RV.warn||"")+"</div>"
+      +'<div class="grid two"><div class="card tight"><h3 style="font-size:14px">'+(meSolid?"Solid rivets (same kind)":"Solid rivets — different kind")+"</h3>"+memb(hg.solid)+"</div>"
+      +'<div class="card tight"><h3 style="font-size:14px">'+(meSolid?"Blind rivets — different kind":"Blind rivets (same kind)")+"</h3>"+memb(hg.blind)+"</div></div>";
+  }
+  return h;
 }
 function rivBrief(r){
   var d=decodePN(r.id), t=[];
@@ -572,6 +811,7 @@ function rivCard(r,q){
     +(docKind?'<span class="tag t-doc">'+docKind+"</span>":"")+(docHead?'<span class="tag t-doc">'+docHead+"</span>":"")
     +(!docHead&&docKind==="Solid"?'<span class="tag t-n">head style not stated in source</span>':"")
     +(!docKind&&d?'<span class="tag t-calc">hint: '+esc(d.kind)+"</span>":"")+tg+"</div>";
+  if(d) b+=readerBoxes(d);
   /* conflicts between what the workbook groups and what the naming suggests */
   if(d&&r.cat){
     var bad=[];
@@ -583,11 +823,11 @@ function rivCard(r,q){
   }
   /* type / head / size table: documented vs hint, side by side */
   var rows=[];
-  rows.push(["Rivet type",docKind?'<span class="tag t-doc">documented</span> '+esc(docKind==="Solid"?"Solid rivet":"Blind rivet")+" — group “"+esc(RCAT[r.cat])+"”":"",d&&d.kind?'<span class="tag t-calc">hint</span> '+esc(d.kind):""]);
-  rows.push(["Head",docHead?'<span class="tag t-doc">documented</span> '+esc(docHead):"",d&&d.head?'<span class="tag t-calc">hint</span> '+esc(d.head):""]);
-  rows.push(["Material",r.mat?'<span class="tag t-doc">documented</span> '+esc(r.mat):"",d&&d.mat?'<span class="tag t-calc">hint</span> '+esc(d.mat):""]);
-  rows.push(["Diameter","",d&&d.dia?'<span class="tag t-calc">hint</span> '+esc(d.dia):""]);
-  var hintLen=d&&d.lenText?'<span class="tag t-calc">hint</span> '+esc(d.lenText):"";
+  rows.push(["Rivet type",docKind?'<span class="tag t-doc">documented</span> '+esc(docKind==="Solid"?"Solid rivet":"Blind rivet")+" — group “"+esc(RCAT[r.cat])+"”":"",d&&d.kind?hintTag(d)+esc(d.kind):""]);
+  rows.push(["Head",docHead?'<span class="tag t-doc">documented</span> '+esc(docHead):"",d&&d.head?hintTag(d)+esc(d.head):""]);
+  rows.push(["Material",r.mat?'<span class="tag t-doc">documented</span> '+esc(r.mat):"",d&&d.mat?hintTag(d)+esc(d.mat):""]);
+  rows.push(["Diameter","",d&&d.dia?hintTag(d)+esc(d.dia):""]);
+  var hintLen=d&&d.lenText?hintTag(d)+esc(d.lenText):"";
   var lenCheck="";
   if(r.lenDoc&&d&&d.lenKind==="length"&&d.lenIn!=null){
     lenCheck=Math.abs(r.lenDoc-d.lenIn)<=0.0075? ' <span class="tag t-doc">consistent</span>'
@@ -600,6 +840,8 @@ function rivCard(r,q){
   if(!d) b+='<p class="muted">No naming rule was verified online for this P/N, so only the workbook data is shown. '+'<button class="pnchip hintchip" data-ana="'+esc(r.id)+'">Search online in P/N Analyzer</button></p>';
   else if(d.notes.length) b+='<p class="muted">'+esc(d.notes.join(" "))+"</p>";
 
+  if(d&&(d.hole||d.strength||d.nas)) b+='<p class="muted" style="margin:6px 0 0">'+(d.nas?"Standard page: <b>"+esc(d.nas)+"</b>. ":"")+(d.hole?"Hole / drill: <b>"+esc(d.hole)+"</b>. ":"")+(d.strength?"Strength: "+esc(d.strength)+". ":"")+"</p>";
+  if(d&&(d.sibs||(d.equiv&&d.equiv.length)||headCodeOf(d))) b+='<details class="altd"><summary>Similar rivets — other materials, NAS page, solid ↔ blind</summary><div>'+altBlocks(d,r.id)+"</div></details>";
   /* other lengths: documented siblings (same family + diameter) and pattern hints */
   if(d&&d.n){
     var sib=[]; rivIndex(); Object.keys(RIV.map).forEach(function(k){
@@ -680,9 +922,9 @@ function relativesBlock(q){
   var raw=tokens(q)[0]||"", d=raw?decodePN(raw):null, h="";
   if(d){
     rivIndex();
-    var rel=RIV.list.filter(function(x){var dx=decodePN(x.id); return dx&&dx.fam===d.fam;});
+    var rel=RIV.list.filter(function(x){var dx=decodePN(x.id); return dx&&(dx.fam===d.fam||(d.line&&d.line!=="solid"&&dx.line===d.line&&dx.headCode&&dx.headCode===d.headCode));});
     if(rel.length){
-      h+='<div class="note"><b>'+esc(pnk(raw))+"</b> is not in the Repair Note workbook, but its naming matches the "+esc(d.fam)+" family, which is. Related entries are shown below with how they differ — same family is <b>not</b> an approved alternate.</div>"
+      h+='<div class="note"><b>'+esc(pnk(raw))+"</b> is not in the Repair Note workbook, but its naming matches the "+esc(d.fam)+" family or the same head / series configuration, which is. Related entries are shown below with how they differ — same family or same configuration is <b>not</b> an approved alternate.</div>"
         +rel.map(function(x){return rivCard(x,q);}).join("");
     }
   }
@@ -725,7 +967,7 @@ function pnStatus(pn){
   return ["t-calc","pattern only — not verified"];
 }
 function crossCandidates(d){
-  var c=[]; if(!d||!d.diaCode) return c;
+  var c=[]; if(!d||!d.diaCode||d.srcCat) return c;
   if(d.fam==="CR2663"&&d.n) c.push({pn:"NAS1398C"+d.diaCode+"-"+d.n,why:"NAS1398 form of the same size — CR2663-4-4 ↔ NAS1398C4-4 and CR2663-8-4 ↔ NAS1398C8-4 are listed online; pattern only for this size."});
   if(d.fam==="NAS1398"&&d.matLetter==="C"&&d.n) c.push({pn:"CR2663-"+d.diaCode+"-"+d.n,why:"Cherry form of the same size (same listings as above); pattern only for this size."});
   if(d.fam==="MS20427"&&d.lenCode) c.push({pn:"MS20426AD"+d.diaCode+"-"+d.lenCode,why:"Same size and countersunk head, but aluminum instead of Monel — a different material, not a like-for-like substitute."});
@@ -735,8 +977,8 @@ function crossCandidates(d){
 }
 function renderAnalyzer(q){
   var raw=tokens(q)[0]||"";
-  var note='<div class="note">Online hints only. The site cannot browse the internet live: the rules and cross-references below were researched online on '+esc(OR.retrieved||"")+' and are shown with their source links; the “search online” buttons open a fresh search. Nothing here is an approved alternate — confirm against the repair / IPC document.</div>';
-  var ex=["CR2662-3-4","CCR264CS3-04","MS20427M3-4","MS20615-5M5","CR2663-4-4","NAS1398C4-4"];
+  var note='<div class="note">Online hints only. The site cannot browse the internet live: the rules and cross-references below were researched online on '+esc(OR.retrieved||"")+', together with the Cherry catalogs you supplied (tagged “catalog”), and are shown with their source links; the “search online” buttons open a fresh search. Nothing here is an approved alternate — confirm against the repair / IPC document.</div>';
+  var ex=["CR2662-3-4","CR2562-2-2","CCR264CS3-04","CR3523-5-05","CR1122-3-04","MS20427M3-4","MS20615-5M5","NAS1398C4-4","NAS1200M3-3","MS14218AD6-7"];
   if(!raw) return note+'<div class="card"><h3>Analyze a rivet P/N</h3><p class="muted">Type a P/N in the search box (or tap an example) to see what its name says — type, head, material, diameter, length — and to look for other lengths or other types.</p>'
     +'<div class="chipline">'+ex.map(function(x){return pnChipAna(x);}).join(" ")+"</div></div>";
   var d=decodePN(raw), h=note+'<div class="card"><div class="pn">'+esc(pnk(raw))+"</div>";
@@ -748,26 +990,32 @@ function renderAnalyzer(q){
     return h;
   }
   /* 4a — what the name says */
-  h+='<h2>What the name says <span class="tag t-calc">hint</span></h2><dl class="kv">'
+  h+=readerBoxes(d);
+  h+='<h2>What the name says '+(d.srcCat?'<span class="tag t-dim">catalog</span>':'<span class="tag t-calc">hint</span>')+'</h2><dl class="kv">'
     +"<dt>Family</dt><dd>"+esc(d.famName)+"</dd>"
     +(d.std?"<dt>Standard</dt><dd>"+esc(d.std)+"</dd>":"")
     +(d.kind?"<dt>Rivet type</dt><dd>"+esc(d.kind)+"</dd>":"")
     +(d.head?"<dt>Head</dt><dd>"+esc(d.head)+"</dd>":"")
     +(d.mat?"<dt>Material</dt><dd>"+esc(d.mat)+"</dd>":"")
+    +(d.nas?"<dt>NAS page</dt><dd>"+esc(d.nas)+"</dd>":"")
     +(d.dia?"<dt>Diameter</dt><dd>−"+d.diaCode+" = "+esc(d.dia)+"</dd>":"")
+    +(d.hole?"<dt>Drill / hole</dt><dd>"+esc(d.hole)+"</dd>":"")
+    +(d.strength?"<dt>Strength</dt><dd>"+esc(d.strength)+"</dd>":"")
     +(d.lenText?"<dt>"+(d.lenKind==="grip"?"Grip":"Length")+"</dt><dd>"+(d.lenKind==="length"?"−"+esc(d.lenCode)+" = ":"")+esc(d.lenText)+"</dd>":"")
     +"</dl>"+(d.famNote?'<p class="muted">'+esc(d.famNote)+"</p>":"")+(d.notes.length?'<p class="muted">'+esc(d.notes.join(" "))+"</p>":"")
     +'<p class="muted" style="margin:6px 0 0">Sources: '+srcLinks(d.src)+"</p>";
+  if(d.tool) h+='<details class="altd"><summary>Installation tooling and grip gage (catalog)</summary><div><p style="font-size:13px">'+esc(d.tool)+"</p></div></details>";
   /* 4b — same type, different length */
   if(d.make&&!d.noSib&&d.n){
     var sibs=[]; for(var k=-3;k<=3;k++){ var n=d.n+k; if(!k||n<1) continue; sibs.push(n); }
     h+='<h2>Need a different length? Same P/N, different back number</h2><div class="tw"><table class="cmp"><thead><tr><th>P/N</th><th>'+(d.lenKind==="grip"?"Grip":"Length")+'</th><th>Status</th><th></th></tr></thead><tbody>'
       +sibs.map(function(n){
-        var pn=d.make(n), st=pnStatus(pn);
+        var pn=d.make(n); if(!pn) return ""; var st=pnStatus(pn);
         return "<tr><td>"+pnChipAna(pn)+"</td><td>"+esc(d.lenKind==="grip"?gripTxt(n):lenTxt(n))+'</td><td><span class="tag '+st[0]+'">'+esc(st[1])+'</span></td><td><a class="olink" href="https://www.google.com/search?q='+encodeURIComponent(pn+" rivet")+'" target="_blank" rel="noopener">Check online ↗</a></td></tr>';
       }).join("")+"</tbody></table></div>"
       +'<p class="muted" style="margin:4px 0 0">Some listings write the last number with two digits (−4 and −04 are the same P/N). “Pattern only” means the P/N follows the naming rule but was not seen in the sources — confirm it exists and that the grip suits the stack-up.</p>';
   } else if(d.noSib) h+='<p class="muted">Other lengths are not generated for this P/N form because its coding is not verified.</p>';
+  h+=altBlocks(d,raw);
   /* 4c — same function, other type */
   var fg=(OR.funcs||[]).filter(function(f){return f.fams.indexOf(d.fam)>-1;})[0];
   var xr=(OR.xref||[]).filter(function(x){return zn(x.a)===zn(raw)||zn(x.b)===zn(raw)||x.a===d.fam||zn(x.b).indexOf(d.fam)===0||zn(x.a).indexOf(d.fam)===0;});
@@ -1078,6 +1326,7 @@ function renderSrc(){
     ["Material & Alternate Finder — Rivet / Fastener","Repair Note Dema.xlsx — sheet Plate Nut- Insert and Exhaust Sleeve. Diameter/grip interpretation rules: Repair Handbook 101.docx (fastener identification)."],
     ["Material & Alternate Finder — Consumable Material (SEI TVE-2)","list consumable material for SEI 01-2019 & 27-2020.xlsx — all worksheets."],
     ["Material & Alternate Finder — Consumable Material (EIN (TEA-5))","Consumable Material List - Update 2026.xlsx — all worksheets."],
+    ["Material & Alternate Finder — Cherry catalog data","Cherry catalogs supplied by the user (PDFs, tagged “catalog”): series / material / head tables, NAS cross-reference, grip and hole sizes, tooling. Solid-rivet families from public standard titles and distributor pages (tagged “hint”). Stored in data/rivet-reference.js."],
     ["Material & Alternate Finder — P/N Analyzer (online)","Internet-researched naming rules and cross-references (data/online-reference.js), each shown with its source link and retrieval date. Hints only — the workbook entries are labelled “documented”, everything derived from P/N names or the internet is labelled “hint”."],
     ["Repair Notes — photos / figures","Images supplied by the user and attached to the matching Repair Note cards; they are not part of Repair Note Dema.xlsx."],
     ["Tool Database","Tool_Database_CFM56.xlsx — sheet Database. One card per unique Tool No, aggregated from every task row that uses it, including the task codes (engine manual task numbers) per engine type."],
@@ -1104,7 +1353,7 @@ function renderSrc(){
    +'<li><b>SEI TVE-2</b> and <b>EIN (TEA-5)</b> are kept as separate references throughout. A material appearing in both is never merged into one record — both are shown, and any difference between them is left visible rather than resolved.</li>'
    +'<li>Consumable material fields shown are exactly what each worksheet provides; sheets differ in columns (e.g. EIN generic sheets use Specification/Product Name/GMF SAP P/N/Remarks, while SEI sheets use CP Number/GMF Approved PN/Alternate PN 1&amp;2), so not every card has the same fields.</li>'
    +'<li>In Repair scheme search, part no./part name/serial no. are taken from the order header where present, falling back to the operation-level material fields only when the header is blank — about 1,142 of 7,020 orders have no part number recorded and about 2,907 have no serial number; all are shown as “–”, never guessed.</li>'
-   +'<li>Engine in Repair scheme search is shown only where a CFM56/GE90/PW127/APU GTCP designation appears in the order’s own part, assembly or finding text (about 5,341 of 7,020 orders have none recorded and show no engine chip) — it is read from the order, never inferred from other orders.</li>'
+   +'<li>Engine in Repair scheme search comes first from a CFM56 / GE90 / PW127 / APU GTCP designation in the order’s own part, assembly or title text (1,679 orders). Where an order has an ESN but no engine, the engine is taken from the ESN list (data/esn-map.js: 155 ESN / APU serials, no conflicts with any order’s own engine) and the chip is dashed and marked “from ESN” — 2,649 more orders, 4,328 of 7,020 in total. The 2,692 orders without an ESN and without an engine designation show no engine. All GE90 variants are shown as GE90.</li>'
    +'<li>Created date comes from the raw exports (order creation date) and is what “Newest first”, the Year filter and the date chip use; 3 orders have none and fall back to the export year. 167 orders found in the 2025 export were created in 2026, so the Year filter (by created date: 2025 = 4,024, 2026 = 2,996) differs from the export counts (4,191 / 2,829).</li>'
    +'<li>Group is the order’s group in the 2026 export or the task-list group in the raw exports (they agree on every 2026 order where both exist); 3,962 of 7,020 orders have one (2025: 2,683 of 4,191, 2026: 1,279 of 2,829) and it is hidden, not guessed, where blank (for example order 806230239).</li>'
    +'<li>Station is the order’s plant code and Work center its work center, exactly as recorded (e.g. GAEM). The meaning of each code is not stated in the files, so none is shown — the requested column “LTCA1” does not exist in the exports, please confirm these are the right fields.</li>'
@@ -1112,6 +1361,7 @@ function renderSrc(){
    +'<li>Part name: where an order has a part number but no name, the name is linked from other orders with the same part number (only part numbers with exactly one name are used; 356 orders) and is marked “linked”. 1,142 orders have no part number at all, so nothing can be linked.</li>'
    +'<li>K-text (the 40-character order short text) is already the start of every card title, so the title is searchable as K-text; where an order has no title the part name is shown instead.</li>'
    +'<li>Repair step text in Repair scheme search is shown exactly as recorded in the order, including where the source itself truncates it.</li>'
+   +'<li>Evidence tags in the rivet tools: <b>documented</b> = in the Repair Note workbook; <b>catalog</b> = from the Cherry catalogs you supplied; <b>hint</b> = decoded from the P/N name using public standard titles or distributor pages. “Same configuration, different material” means the same head, diameter and grip code on another series (for example CR2562-2-2 and CR2662-2-2) — it is not a documented alternate. Solid and blind rivets are never presented as substitutes: the catalogs warn against replacing solid rivets with blind ones in load-carrying members without approval.</li>'
    +'<li>P/N Analyzer: P/Ns marked “seen listed online” were found on distributor pages during research; “pattern only” means the P/N follows a naming rule but was not seen. The site cannot search the internet live — the “search online” buttons open a fresh search in a new tab.</li>'
    +'<li>Source check: the workbook lists MS20426AD3-6-5 with a length of 0.375 in; by the naming rule (−6-5 = 6.5/16 in) it would be 0.406 in, while MS20426AD3-6 is 3/8 in. It is shown as documented with a “differs” flag — verify the source.</li>'
    +'<li>Tool Database aggregates 4,853 task rows into 1,029 unique Tool No cards. Where a tool’s description varies slightly across rows (casing, a trailing parenthetical) the most frequent version is shown; rack, engine type and status are never collapsed — every distinct value the source records for that tool is kept, since the same tool can sit in more than one rack or carry a different status per engine/task. 390 of 1,029 tools have no rack recorded at all.</li>'
