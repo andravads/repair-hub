@@ -37,6 +37,7 @@ repair-engineering-starter-hub/
 │   ├── tool-database.js          Tool_Database_CFM56.xlsx — 1,029 tools + 324 task codes (~310 KB)
 │   ├── esn-map.js                ESN / APU serial → engine family (155 entries; edit this small file to update)
 │   ├── rivet-reference.js        Cherry catalogs (supplied PDFs) + MS/NAS/BACR/AN solid rivet families — tagged catalog / hint
+│   ├── flow-data.js              Flow Process workflows, units and dictionary (add new procedures here)
 │   ├── online-reference.js       internet-researched rivet / plate nut naming rules + sources (hints only)
 │   └── repair-note-images.js     manifest for assets/repair-note-images (6 user-supplied photos / figures)
 ├── assets/handbook-images/       19 illustrations extracted from the handbook
@@ -138,6 +139,20 @@ Learned from the five Cherry catalogs supplied (CherryLOCK quick card, nut plate
 - Solid families: MS20426 / 27 / 70 / 613 / 615, MS9318 / 9403 / 9460, MS14218, MS35743, NAS1097 / 1198 / 1199 / 1200,
   BACR15BA / BB / CE / FT, AN123 (head depends on the number range).
 Tags: `documented` (workbook) · `catalog` (Cherry PDFs) · `hint` (decoded / public pages).
+
+## Flow Process — workflow library
+
+Sidebar → Reference → **Flow Process**. A library of workflow cards; opening one shows an interactive flowchart
+(generated SVG: numbered steps, Yes/No diamonds, parallel bars, a feedback loop, colour per responsible unit,
+zoom / pan / fit), a **Step list** view for phones, the numbered step table (No. · PIC · Activity · Output),
+an expandable explanation per stage and the dictionary. Clicking a step highlights it in the chart, table and
+explanations. No library and no image: the chart is drawn from data.
+
+**Add a workflow:** append one object to `workflows` in `data/flow-data.js` — `id`, `title`, `category`, `units`,
+`description`, `cw` / `ch` (canvas size), `nodes` (type `start` / `proc` / `decision` / `end` / `bar`, unit, x / y / w / h,
+label lines), `edges` (point lists, `kind` yes / no / loop / dash), `steps` (the table and explanations) and optional
+`parallel` pairs. It appears in the library with no code change. Add new unit codes to `units`, new terms to
+`dictionary`. First workflow: Asset & Tool Procurement (V6).
 
 ## Tool Database — what's never merged
 

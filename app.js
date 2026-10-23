@@ -4,7 +4,7 @@
 (function () {
 "use strict";
 
-var BUILD = { version: "1.8.0", date: "2026-10-15", sources: [
+var BUILD = { version: "1.9.0", date: "2026-10-16", sources: [
   { file: "Repair Handbook 101.docx", note: "TVE-5 — T-Codes, finding definitions, GD&T, plate nut identification, fastener references, important links" },
   { file: "Rectification History Database.xlsx", note: "sheet Main (historical rectification records) and sheet List Engine (shop visit list) — History records view" },
   { file: "Repair Note Dema.xlsx", note: "sheets Module 22x, Module 23x, Plate Nut- Insert, Exhaust Sleeve, Spinner Cone, Flowpath Repair, CMM or retail" },
@@ -14,6 +14,7 @@ var BUILD = { version: "1.8.0", date: "2026-10-15", sources: [
   { file: "ZAS_CMORD_2025.xlsx and ZAS_CMSORD_2026 (up to Sep 2026).xlsx", note: "Raw exports, matched by order number to add created date, group, station / work center and shop-visit text (ESN)" },
   { file: "Tool_Database_CFM56.xlsx", note: "sheet Database — 1,029 unique tools aggregated from 4,853 task rows (Tool No, Description, Rack, Type, Status, Module, Function, Task) — Tool Database view" },
   { file: "ESN_Identification_List.xlsx (data/esn-map.js)", note: "155 ESN / APU serials mapped to an engine family — 120 from the order data itself, 35 identified by the user; all GE90 variants treated as GE90" },
+  { file: "Flow Process workflows (data/flow-data.js)", note: "GMF AeroAsia — Asset & Tool Procurement Workflow (V6), transcribed from the workflow description supplied for this section" },
   { file: "Cherry rivet catalogs supplied by the user (data/rivet-reference.js)", note: "CherryLOCK quick card, Nut Plate Rivets CCR244/264/274, 3/32 SPR, CherryLOCK ‘A’ (NAS1398/1399), CherryMAX — tagged “catalog”; plus public listings for MS / NAS / BACR / AN solid rivets" },
   { file: "Online reference (data/online-reference.js)", note: "Internet-researched rivet / plate nut naming rules and cross-references, retrieved 2026-10-12, each with its source link — hints only, used by the Rivet / Fastener cards and the P/N Analyzer" },
   { file: "Repair note photos / figures (assets/repair-note-images)", note: "6 images supplied by the user for the Repair Notes cards — not part of Repair Note Dema.xlsx" }
@@ -70,6 +71,7 @@ var TABS = {
   tcode:{ph:"e.g. IW31, task list, equipment",hint:(HB.tcodes||[]).length+" T-Codes from Repair Handbook 101."},
   find:{ph:"e.g. crack, korosi, fretting",hint:(HB.findings||[]).length+" defect definitions."},
   fast:{ph:"",hint:"Handbook illustrations — no search."},
+  flow:{ph:"",hint:""},
   tool:{ph:"Tool no., description, rack or task (e.g. 72-00-02-020-001)",hint:(TOOLDB.tools||[]).length+" tools from Tool_Database_CFM56.xlsx."},
   src:{ph:"",hint:""}
 };
@@ -139,6 +141,7 @@ function renderHome(q){
    +sc("tcode","T-Code Finder","SAP transaction codes by group and function")
    +sc("find","Finding Dictionary","Defect terminology and definitions")
    +sc("fast","Fastener Reference","Handbook identification illustrations")
+   +sc("flow","Flow Process","Workflows as interactive flowcharts — starting with Asset & Tool Procurement")
    +sc("tool","Tool Database","Tool no., description and rack location for CFM56 maintenance tooling")
    +'</div>';
 
@@ -1123,6 +1126,7 @@ document.addEventListener("change",function(e){
   schemeShown=25; render();
 });
 document.addEventListener("keydown",function(e){
+  if((e.key==="Enter"||e.key===" ")&&e.target.closest&&e.target.closest("[data-fnode]")&&!e.target.closest("tr")){ e.preventDefault(); flowSelect(e.target.closest("[data-fnode]").dataset.fnode); return; }
   if(e.key==="Escape"){ var o=document.querySelector(".lightbox"); if(o) o.parentNode.removeChild(o); }
   if((e.key==="Enter"||e.key===" ")&&e.target.classList&&e.target.classList.contains("gimg")){ e.preventDefault(); openLightbox(e.target.dataset.full,e.target.alt); }
 });
@@ -1317,6 +1321,148 @@ function renderTool(q){
      : '<div class="card empty"><b>No tool matches.</b><p>Try the tool number, a short description word, or clear a filter.</p></div>');
 }
 
+/* ---------- FLOW PROCESS (workflow library, interactive SVG flowchart, step table, explanations, dictionary) ---------- */
+/* Content lives in data/flow-data.js; this code only draws it. No chart library — the chart is generated SVG. */
+var FP = window.FLOW_PROCESS || {units:{},dictionary:{units:[],terms:[]},workflows:[]};
+var flowState={wf:null,view:(window.innerWidth<700?"list":"chart"),sel:null}, FDRAG={moved:false};
+function flowWf(){return (FP.workflows||[]).filter(function(w){return w.id===flowState.wf;})[0];}
+function flowStep(wf,id){return wf.steps.filter(function(x){return x.id===id;})[0];}
+function flowNode(wf,id){return wf.nodes.filter(function(x){return x.id===id;})[0];}
+function uChip(u){var x=FP.units[u]||{code:u}; return '<span class="uchip u-'+esc(u)+'">'+esc(x.code)+"</span>";}
+function renderFlow(){
+  var wf=flowWf();
+  if(!wf){
+    var ws=FP.workflows||[];
+    return '<div class="card tight"><h3>Flow Process</h3><p class="muted" style="margin:2px 0 0">Internal procedures as interactive flowcharts, step tables and terminology. Choose a workflow to open it.</p></div>'
+     +'<div class="count">'+ws.length+" workflow"+(ws.length===1?"":"s")+"</div><div class=\"grid two\">"+ws.map(function(w){
+       return '<div class="card flowcard"><span class="tag t-n">'+esc(w.category)+'</span><h3 style="margin-top:6px">'+esc(w.title)+(w.version?' <span class="muted">'+esc(w.version)+"</span>":"")+"</h3>"
+        +'<p style="font-size:13.5px">'+esc(w.description)+'</p><h2>Responsible units</h2><div class="chipline">'+w.units.map(uChip).join(" ")+'</div>'
+        +'<button class="more" style="margin-top:10px" data-fopen="'+esc(w.id)+'">Open workflow</button></div>';}).join("")+"</div>";
+  }
+  var h='<button class="chip" data-fback="1" style="margin-top:4px">← Workflow library</button>'
+   +'<div class="card"><span class="tag t-n">'+esc(wf.category)+"</span>"+(wf.version?'<span class="tag t-dim">'+esc(wf.version)+"</span>":"")
+   +'<h3 style="margin-top:6px;font-size:18px">'+esc(wf.title)+"</h3><p style=\"font-size:13.5px\">"+esc(wf.description)+"</p>"
+   +'<div class="chipline">'+wf.units.map(uChip).join(" ")+"</div>"
+   +(wf.links&&wf.links.length?'<p class="muted" style="margin:8px 0 0">'+wf.links.map(function(l){return '<a href="'+esc(l.u)+'" target="_blank" rel="noopener">'+esc(l.t)+" ↗</a>";}).join(" · ")+"</p>":"")+"</div>";
+  h+='<div class="chips"><button class="chip" data-fview="chart" aria-pressed="'+(flowState.view==="chart")+'">Flowchart</button><button class="chip" data-fview="list" aria-pressed="'+(flowState.view==="list")+'">Step list</button></div>';
+  h+= flowState.view==="chart"? flowChartHtml(wf) : flowListHtml(wf);
+  return h+flowTableHtml(wf)+flowExplainHtml(wf)+flowDictHtml()+'<div class="src">Source: '+esc(wf.source||"")+"</div>";
+}
+function flowLegendHtml(){
+  var L=[["TVE","TVE-2 / TVE-5"],["TVS","TV Secretary"],["TUP","TUP"],["TA","TA / TX"],["DEC","Decision (Yes / No)"],["NEU","Start / End"]];
+  return '<div class="flegend">'+L.map(function(x){return '<span class="lg"><i class="sw fu-'+x[0]+'"></i>'+esc(x[1])+"</span>";}).join("")
+   +'<span class="lg"><i class="sw sw-loop"></i>Feedback loop</span><span class="lg"><i class="sw sw-dash"></i>Information flow</span></div>';
+}
+function flowSvgHtml(wf){
+  var defs="<defs>"+[["n","#5B6B76"],["yes","#1E7A46"],["no","#B42318"],["loop","#C2570C"],["dash","#8A97A3"]].map(function(c){
+    return '<marker id="fa-'+c[0]+'" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="'+c[1]+'"/></marker>';}).join("")+"</defs>";
+  var edges=wf.edges.map(function(e){
+    var k=e.kind||"n", d=e.pts.map(function(p,i){return (i?"L":"M")+p[0]+","+p[1];}).join(" ");
+    return '<path class="fedge fe-'+k+'" d="'+d+'" marker-end="url(#fa-'+k+')"/>'
+      +(e.label?'<text class="felab fl-'+k+'" x="'+e.lx+'" y="'+e.ly+'" text-anchor="'+(e.anchor||"middle")+'">'+esc(e.label)+"</text>":"");
+  }).join("");
+  var nodes=wf.nodes.map(function(n){
+    if(n.type==="bar") return '<g class="fbar"><line x1="'+n.x1+'" y1="'+n.y+'" x2="'+n.x2+'" y2="'+n.y+'"/><text x="'+n.x1+'" y="'+(n.y-9)+'">'+esc(n.label||"")+"</text></g>";
+    var st=flowStep(wf,n.id), x=n.x-n.w/2, y=n.y-n.h/2, shape;
+    if(n.type==="decision") shape='<polygon class="shape" points="'+n.x+","+y+" "+(n.x+n.w/2)+","+n.y+" "+n.x+","+(n.y+n.h/2)+" "+x+","+n.y+'"/>';
+    else shape='<rect class="shape" x="'+x+'" y="'+y+'" width="'+n.w+'" height="'+n.h+'" rx="'+((n.type==="start"||n.type==="end")?Math.min(n.h/2,26):10)+'"/>';
+    var L=n.lines.length, y0=n.y-((L-1)*16)/2-(n.tag?7:0)+4;
+    var tx=n.lines.map(function(t,i){return '<text class="'+(i?"fl2":"fl1")+'" x="'+n.x+'" y="'+(y0+i*16)+'" text-anchor="middle">'+esc(t)+"</text>";}).join("");
+    if(n.tag) tx+='<text class="ftag" x="'+n.x+'" y="'+(n.y+n.h/2-9)+'" text-anchor="middle">'+esc(n.tag)+"</text>";
+    var bx=n.type==="decision"?n.x-n.w/4:x+2, by=n.type==="decision"?n.y-n.h/4:y+2;
+    var badge=st?'<circle class="fnb" cx="'+bx+'" cy="'+by+'" r="14"/><text class="fnbt" x="'+bx+'" y="'+(by+3.5)+'" text-anchor="middle">'+esc(st.no)+"</text>":"";
+    return '<g class="fnode fn-'+n.unit+(flowState.sel===n.id?" fsel":"")+'"'+(st?' data-fnode="'+n.id+'" tabindex="0" role="button" aria-label="Step '+esc(st.no)+": "+esc(n.lines.join(" "))+'"':"")+">"+shape+tx+badge+"</g>";
+  }).join("");
+  return '<svg id="fsvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+wf.cw+" "+wf.ch+'" role="img" aria-label="'+esc(wf.title)+' flowchart">'+defs+edges+nodes+"</svg>";
+}
+function flowChartHtml(wf){
+  return flowLegendHtml()+'<div class="fbox" id="fbox">'+flowSvgHtml(wf)
+   +'<div class="fctl"><button data-fzoom="in" aria-label="Zoom in">+</button><button data-fzoom="out" aria-label="Zoom out">−</button><button data-fzoom="width" aria-label="Fit width">↔</button><button data-fzoom="fit" aria-label="Fit whole chart">⤢</button></div>'
+   +'<div class="fpop" id="fpop" hidden></div></div>'
+   +'<p class="muted" style="margin:6px 0 0">Tap or click a step for its details. Drag to move, pinch or use + / − to zoom (Ctrl + scroll on desktop). <b>⤢</b> fits the whole chart, <b>↔</b> fits the width.</p>';
+}
+function flowListHtml(wf){
+  var par={}; (wf.parallel||[]).forEach(function(g){g.forEach(function(a){par[a]=g.filter(function(b){return b!==a;}).join(", ");});});
+  return flowLegendHtml()+'<div class="flist">'+wf.steps.map(function(s){
+    var n=flowNode(wf,s.id), dec=s.unit==="DEC";
+    return '<div class="fstep fu-'+s.unit+(flowState.sel===s.id?" fsel":"")+'" data-fnode="'+s.id+'" tabindex="0" role="button">'
+      +'<div class="fsh"><span class="fno fu-'+s.unit+'">'+esc(s.no)+'</span><b>'+esc(n?n.lines.join(" "):s.activity)+"</b></div>"
+      +'<div class="fsm">'+uChip(s.unit)+(par[s.id]?'<span class="tag t-calc">parallel with '+esc(par[s.id])+"</span>":"")+(dec?'<span class="tag t-n">decision</span>':"")+"</div>"
+      +'<p>'+esc(s.activity)+"</p>"+'<div class="fnext">'+esc(s.next||"")+"</div></div>";}).join("")+"</div>";
+}
+function flowTableHtml(wf){
+  return '<div class="card tight"><h3>Step-by-step table</h3><div class="tw"><table class="ftable"><thead><tr><th>No.</th><th>PIC</th><th>Activity</th><th>Output</th></tr></thead><tbody>'
+   +wf.steps.map(function(s){return '<tr class="frow'+(flowState.sel===s.id?" fsel":"")+'" data-fnode="'+s.id+'"><td><span class="fno fu-'+s.unit+'">'+esc(s.no)+"</span></td><td>"+esc(s.pic)+"</td><td>"+esc(s.activity)+"</td><td>"+esc(s.output)+"</td></tr>";}).join("")
+   +"</tbody></table></div></div>";
+}
+function flowDetailHtml(wf,s){
+  return '<dl class="kv"><dt>PIC</dt><dd>'+esc(s.pic)+"</dd><dt>Purpose</dt><dd>"+esc(s.purpose||"–")+"</dd><dt>Documents</dt><dd>"+esc(s.docs||"–")+"</dd><dt>Output</dt><dd>"+esc(s.output)+"</dd>"
+   +(s.next?"<dt>Next</dt><dd>"+esc(s.next)+"</dd>":"")+(s.notes?"<dt>Note</dt><dd>"+esc(s.notes)+"</dd>":"")+"</dl>"
+   +(s.links&&s.links.length?'<p class="muted" style="margin:6px 0 0">'+s.links.map(function(l){return '<a href="'+esc(l.u)+'" target="_blank" rel="noopener">'+esc(l.t)+" ↗</a>";}).join(" · ")+"</p>":"");
+}
+function flowExplainHtml(wf){
+  return '<div class="card tight"><h3>Detailed explanation of each stage</h3>'+wf.steps.map(function(s){
+    var n=flowNode(wf,s.id);
+    return '<details class="fdet" id="fd-'+s.id+'"><summary><span class="fno fu-'+s.unit+'">'+esc(s.no)+"</span> "+esc(n?n.lines.join(" "):s.activity)+"</summary><div>"+flowDetailHtml(wf,s)+"</div></details>";}).join("")+"</div>";
+}
+function flowDictHtml(){
+  function t(l){return '<div class="tw"><table class="cmp"><tbody>'+l.map(function(r){return "<tr><th>"+esc(r[0])+"</th><td>"+esc(r[1])+"</td></tr>";}).join("")+"</tbody></table></div>";}
+  return '<div class="card tight"><h3>Dictionary</h3><h2>Organizational units</h2>'+t(FP.dictionary.units)+"<h2>Procurement terminology</h2>"+t(FP.dictionary.terms)+"</div>";
+}
+function flowSelect(id){
+  var wf=flowWf(); if(!wf) return; var s=flowStep(wf,id); if(!s) return;
+  flowState.sel=id;
+  Array.prototype.forEach.call(document.querySelectorAll("#flow .fsel"),function(el){el.classList.remove("fsel");});
+  Array.prototype.forEach.call(document.querySelectorAll('#flow [data-fnode="'+id+'"]'),function(el){el.classList.add("fsel");});
+  var d=$("fd-"+id); if(d) d.open=true;
+  var pop=$("fpop");
+  if(pop){
+    pop.hidden=false;
+    pop.innerHTML='<div class="fpophd"><span class="fno fu-'+s.unit+'">'+esc(s.no)+"</span> "+uChip(s.unit)+'<button data-fpopclose="1" aria-label="Close">✕</button></div>'
+      +'<div class="fpopact">'+esc(s.activity)+"</div>"+flowDetailHtml(wf,s)+'<button class="pnchip" data-fgo="'+id+'">Full explanation ↓</button>';
+  }
+}
+function flowBind(){
+  var box=$("fbox"), wf=flowWf(); if(!box||!wf) return;
+  var svg=box.querySelector("svg"), cw=wf.cw, ch=wf.ch, V={x:0,y:0,w:cw,h:ch};
+  function size(){var r=box.getBoundingClientRect(); return {w:Math.max(r.width,1),h:Math.max(r.height,1)};}
+  function apply(){svg.setAttribute("viewBox",V.x+" "+V.y+" "+V.w+" "+V.h);}
+  function fitW(){var z=size(); V.w=cw; V.h=cw*z.h/z.w; V.x=0; V.y=0; apply();}
+  function fitAll(){var z=size(), sc=Math.min(z.w/cw,z.h/ch); V.w=z.w/sc; V.h=z.h/sc; V.x=(cw-V.w)/2; V.y=(ch-V.h)/2; apply();}
+  function zoom(f,cx,cy){
+    var nw=Math.max(300,Math.min(cw*2,V.w/f)), k=nw/V.w, nh=V.h*k;
+    if(cx==null){cx=V.x+V.w/2; cy=V.y+V.h/2;}
+    V.x=cx-(cx-V.x)*k; V.y=cy-(cy-V.y)*k; V.w=nw; V.h=nh; apply();
+  }
+  box._ctl={fitW:fitW,fitAll:fitAll,zoom:zoom}; fitW();
+  var ptrs={}, travel=0;
+  box.addEventListener("pointerdown",function(e){
+    if(e.target.closest(".fpop,.fctl")) return;
+    ptrs[e.pointerId]={x:e.clientX,y:e.clientY}; travel=0; FDRAG.moved=false;
+  });
+  box.addEventListener("pointermove",function(e){
+    var p=ptrs[e.pointerId]; if(!p) return;
+    var ids=Object.keys(ptrs), z=size(), r=box.getBoundingClientRect();
+    if(ids.length===2){
+      var a=ptrs[ids[0]], b=ptrs[ids[1]], d0=Math.hypot(a.x-b.x,a.y-b.y);
+      p.x=e.clientX; p.y=e.clientY;
+      var d1=Math.hypot(a.x-b.x,a.y-b.y);
+      if(d0>0) zoom(d1/d0,V.x+((a.x+b.x)/2-r.left)/z.w*V.w,V.y+((a.y+b.y)/2-r.top)/z.h*V.h);
+      FDRAG.moved=true; return;
+    }
+    var dx=e.clientX-p.x, dy=e.clientY-p.y; travel+=Math.abs(dx)+Math.abs(dy); if(travel>6) FDRAG.moved=true;
+    V.x-=dx*V.w/z.w; V.y-=dy*V.h/z.h; p.x=e.clientX; p.y=e.clientY; apply();
+  });
+  function up(e){delete ptrs[e.pointerId];}
+  box.addEventListener("pointerup",up); box.addEventListener("pointercancel",up); box.addEventListener("pointerleave",up);
+  box.addEventListener("wheel",function(e){
+    if(!(e.ctrlKey||e.metaKey)) return; e.preventDefault();
+    var z=size(), r=box.getBoundingClientRect();
+    zoom(e.deltaY<0?1.15:1/1.15,V.x+(e.clientX-r.left)/z.w*V.w,V.y+(e.clientY-r.top)/z.h*V.h);
+  },{passive:false});
+  if(flowState.sel) flowSelect(flowState.sel);
+}
+
 /* ---------- SOURCES ---------- */
 function renderSrc(){
   var map=[
@@ -1329,6 +1475,7 @@ function renderSrc(){
     ["Material & Alternate Finder — Cherry catalog data","Cherry catalogs supplied by the user (PDFs, tagged “catalog”): series / material / head tables, NAS cross-reference, grip and hole sizes, tooling. Solid-rivet families from public standard titles and distributor pages (tagged “hint”). Stored in data/rivet-reference.js."],
     ["Material & Alternate Finder — P/N Analyzer (online)","Internet-researched naming rules and cross-references (data/online-reference.js), each shown with its source link and retrieval date. Hints only — the workbook entries are labelled “documented”, everything derived from P/N names or the internet is labelled “hint”."],
     ["Repair Notes — photos / figures","Images supplied by the user and attached to the matching Repair Note cards; they are not part of Repair Note Dema.xlsx."],
+    ["Flow Process","data/flow-data.js — workflow library (Asset & Tool Procurement V6). The step table, explanations, dictionary and flowchart all draw from the same data, so they cannot drift apart."],
     ["Tool Database","Tool_Database_CFM56.xlsx — sheet Database. One card per unique Tool No, aggregated from every task row that uses it, including the task codes (engine manual task numbers) per engine type."],
     ["Repair Notes","Repair Note Dema.xlsx — sheets Module 22x, Module 23x, Exhaust Sleeve, Spinner Cone, Flowpath Repair, CMM or retail."],
     ["T-Code Finder","Repair Handbook 101.docx — T-Code table."],
@@ -1380,10 +1527,18 @@ function render(){
   else if(cur==="find") $("find").innerHTML=renderFind(q);
   else if(cur==="fast") $("fast").innerHTML=renderFast();
   else if(cur==="tool") $("tool").innerHTML=renderTool(q);
+  else if(cur==="flow"){ $("flow").innerHTML=renderFlow(); flowBind(); }
   else if(cur==="src") $("src").innerHTML=renderSrc();
 }
 $("q").addEventListener("input",function(){ rectShown=25; consShown=25; schemeShown=25; toolShown=25; syncClearBtn(); render(); });
 document.addEventListener("click",function(e){
+  var fo=e.target.closest("[data-fopen]"); if(fo){ flowState.wf=fo.dataset.fopen; flowState.sel=null; render(); window.scrollTo(0,0); return; }
+  if(e.target.closest("[data-fback]")){ flowState.wf=null; flowState.sel=null; render(); window.scrollTo(0,0); return; }
+  var fv=e.target.closest("[data-fview]"); if(fv){ flowState.view=fv.dataset.fview; render(); return; }
+  var fz=e.target.closest("[data-fzoom]"); if(fz){ var bx=$("fbox"); if(bx&&bx._ctl){ var k=fz.dataset.fzoom; if(k==="in") bx._ctl.zoom(1.3); else if(k==="out") bx._ctl.zoom(1/1.3); else if(k==="fit") bx._ctl.fitAll(); else bx._ctl.fitW(); } return; }
+  if(e.target.closest("[data-fpopclose]")){ var pp=$("fpop"); if(pp) pp.hidden=true; return; }
+  var fg=e.target.closest("[data-fgo]"); if(fg){ var dd=$("fd-"+fg.dataset.fgo); if(dd){ dd.open=true; dd.scrollIntoView({behavior:"smooth",block:"start"}); } return; }
+  var fn=e.target.closest("[data-fnode]"); if(fn){ if(FDRAG.moved){ FDRAG.moved=false; return; } flowSelect(fn.dataset.fnode); return; }
   var dq=e.target.closest("[data-q]")||e.target.closest("[data-gorivet]");
   if(dq){ $("q").value=dq.dataset.q||dq.dataset.gorivet; altKind="all"; altSub="rivet"; syncClearBtn(); render(); window.scrollTo(0,0); return; }
   var da=e.target.closest("[data-ana]");
